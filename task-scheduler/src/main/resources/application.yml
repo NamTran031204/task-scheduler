@@ -1,0 +1,26 @@
+server:
+  port: 8088
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/task_scheduler?useSSL=false&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver  #driver class name cua mysql, tryen thong tu lau roi
+    username: root  #username va password cua mysql do minh tu
+    password:
+  jpa:  #JPA la mot API cua Java de ket noi voi cac co so du lieu quan he
+    show-sql: true
+    hibernate:
+      ddl-auto: none  #ddl auto la dung de tao bang trong database, khong cho java spring tao bang
+    properties:
+      hibernate:
+      dialect: org.hibernate.dialect.MySQL8Dialect
+      format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+api:
+  prefix: api/v1
+
+jwt:
+  expiration: 2592000 #30days * 24h * 60m * 60s
+  secretKey: WVok1DnZJRWsPXovJVTzB6NiNWAHwRZZoH7T7GqP8Ko=
