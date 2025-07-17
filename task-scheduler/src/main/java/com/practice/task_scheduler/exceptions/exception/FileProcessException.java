@@ -4,17 +4,15 @@ import com.practice.task_scheduler.exceptions.ErrorCode;
 import lombok.Getter;
 
 @Getter
-public class UserRequestException extends RuntimeException {
+public class FileProcessException extends RuntimeException {
     private final ErrorCode errorCode;
-
-    public UserRequestException(ErrorCode errorCode) {
+    public FileProcessException(ErrorCode errorCode) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
 
-    public UserRequestException(ErrorCode errorCode, String message) {
+    public FileProcessException(ErrorCode errorCode, String message) {
         super(message);
         this.errorCode = errorCode;
     }
-
 }
