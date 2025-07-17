@@ -1,10 +1,7 @@
 package com.practice.task_scheduler.entities.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -14,6 +11,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"task", "user"})
+@EqualsAndHashCode(exclude = {"task", "user", "uploadedAt"})
 public class Attachment {
 
     @Id

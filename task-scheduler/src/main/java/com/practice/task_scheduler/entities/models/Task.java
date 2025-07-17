@@ -1,10 +1,7 @@
 package com.practice.task_scheduler.entities.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,6 +12,8 @@ import java.util.List;
 @NoArgsConstructor
 @Table(name = "tasks")
 @Entity
+@ToString(exclude = {"taskList", "createdByUser", "assignedToUser", "taskRecurrences", "taskReminders", "attachments", "taskHistories", "notifications"})
+@EqualsAndHashCode(exclude = {"taskList", "createdByUser", "assignedToUser", "taskRecurrences", "taskReminders", "attachments", "taskHistories", "notifications", "createdAt", "updatedAt", "completedAt"})
 public class Task {
 
     @Id

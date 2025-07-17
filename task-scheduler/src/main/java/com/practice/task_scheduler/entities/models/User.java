@@ -12,6 +12,8 @@ import java.util.List;
 @Builder
 @Table(name = "users")
 @Entity
+@ToString(exclude = {"taskLists", "userTaskLists", "createdTasks", "assignedTasks", "taskReminders", "attachments", "taskHistories", "notifications"})
+@EqualsAndHashCode(exclude = {"taskLists", "userTaskLists", "createdTasks", "assignedTasks", "taskReminders", "attachments", "taskHistories", "notifications", "createdAt", "updatedAt"})
 public class User{
 
     @Id

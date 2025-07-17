@@ -1,10 +1,7 @@
 package com.practice.task_scheduler.entities.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -15,6 +12,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"task"})
+@EqualsAndHashCode(exclude = {"task", "createdAt", "updatedAt", "nextDueDate"})
 public class TaskRecurrence {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

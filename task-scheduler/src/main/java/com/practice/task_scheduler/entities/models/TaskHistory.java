@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"task", "user"})
+@EqualsAndHashCode(exclude = {"task", "user", "createdAt"})
 public class TaskHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"user", "task"})
+@EqualsAndHashCode(exclude = {"user", "task", "sentAt", "readAt"})
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

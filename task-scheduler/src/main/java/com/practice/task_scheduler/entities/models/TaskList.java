@@ -12,6 +12,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"ownerUser", "userTaskLists", "tasks"})
+@EqualsAndHashCode(exclude = {"ownerUser", "userTaskLists", "tasks", "createdAt", "updatedAt"})
 public class TaskList{
 
     @Id
