@@ -26,20 +26,14 @@ public class TaskListController {
             @PathVariable("id") long id,
             @Valid @RequestBody TaskListDTO taskListDTO
     ){
-        try {
-            return ResponseEntity.ok(taskListService.createTaskList(id, taskListDTO));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(taskListService.createTaskList(id, taskListDTO));
+
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getTaskListById(@PathVariable("id") long id) {
-        try {
-            return ResponseEntity.ok(taskListService.getTaskListById(id));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(taskListService.getTaskListById(id));
+
     }
 
     @GetMapping("/user/{userId}")
@@ -48,14 +42,10 @@ public class TaskListController {
             @Param("record") int record,
             @Param("page") int page
     ) {
-        try {
-            PageRequest pageRequest = PageRequest.of(page, record, Sort.by("createdAt").descending());
-            Page<TaskListResponse> taskListPage = taskListService.getAllTaskListsByUserId(userId, pageRequest);
+        PageRequest pageRequest = PageRequest.of(page, record, Sort.by("createdAt").descending());
+        Page<TaskListResponse> taskListPage = taskListService.getAllTaskListsByUserId(userId, pageRequest);
 
-            return ResponseEntity.ok(taskListPage);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(taskListPage);
     }
 
     @PutMapping("/update/{id}/user/{userId}")
@@ -64,11 +54,8 @@ public class TaskListController {
             @PathVariable("userId") long userId,
             @Valid @RequestBody TaskListDTO taskListDTO
     ) {
-        try {
-            return ResponseEntity.ok(taskListService.updateTaskList(id, userId, taskListDTO));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(taskListService.updateTaskList(id, userId, taskListDTO));
+
     }
 
     @DeleteMapping("/delete/{id}/user/{userId}")
@@ -76,12 +63,8 @@ public class TaskListController {
             @PathVariable("id") long id,
             @PathVariable("userId") long userId
     ) {
-        try {
-            taskListService.deleteTaskList(id, userId);
-            return ResponseEntity.ok("TaskList deleted successfully");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        taskListService.deleteTaskList(id, userId);
+        return ResponseEntity.ok("TaskList deleted successfully");
     }
 
     @PutMapping("/share/{id}/user/{userId}")
@@ -89,11 +72,7 @@ public class TaskListController {
             @PathVariable("id") long id,
             @PathVariable("userId") long userId
     ) {
-        try {
-            return ResponseEntity.ok(taskListService.shareTaskList(id, userId));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(taskListService.shareTaskList(id, userId));
     }
 
     @PostMapping("/join/{shareCode}/user/{userId}")
@@ -101,10 +80,6 @@ public class TaskListController {
             @PathVariable("shareCode") String shareCode,
             @PathVariable("userId") long userId
     ) {
-        try {
-            return ResponseEntity.ok(taskListService.joinTaskListByShareCode(shareCode, userId));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return ResponseEntity.ok(taskListService.joinTaskListByShareCode(shareCode, userId));
     }
 }

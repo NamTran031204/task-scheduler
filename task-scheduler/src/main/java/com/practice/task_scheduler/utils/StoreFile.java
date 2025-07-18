@@ -16,14 +16,17 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class StoreFile {
+
+    public static final String storePath = "uploads/";
+
+
     public static String storeFile(MultipartFile file) throws FileProcessException {
         try {
             String fileName = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
 
             String uniqueName = UUID.randomUUID().toString() + fileName;
 
-            fileName = uniqueName;
-            Path path = Paths.get("uploads");
+            Path path = Paths.get(storePath.substring(0, storePath.length()-1));
 
             if (!Files.exists(path)) {
                 Files.createDirectories(path);
@@ -56,8 +59,18 @@ public class StoreFile {
         }
     }
 
+    public static void checkFile(MultipartFile file) throws FileProcessException{
+        if(file.getSize() == 0) { // kiem tra so luong anh
+            throw new FileProcessException(ErrorCode.FILE_NOT_EXIST);
+        }
+
+        if (file.getSize() > 10 * 1024 * 1024){
+            throw new FileProcessException(ErrorCode.FILE_TOO_LARGE);
+        }
+    }
+
     public static void deleteImage(String url){
-        Path path = Paths.get("uploads/" + url);
+        Path path = Paths.get(storePath + url);
         try {
             if(!Files.exists(path)){
                 throw new FileProcessException(ErrorCode.FILE_NOT_EXIST);

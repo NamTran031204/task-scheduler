@@ -6,6 +6,7 @@ import com.practice.task_scheduler.entities.models.User;
 import com.practice.task_scheduler.entities.models.UserTaskList;
 import com.practice.task_scheduler.entities.responses.TaskListResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
+import com.practice.task_scheduler.exceptions.exception.TaskException;
 import com.practice.task_scheduler.exceptions.exception.TaskListException;
 import com.practice.task_scheduler.exceptions.exception.UserRequestException;
 import com.practice.task_scheduler.repositories.TaskListRepository;
@@ -51,14 +52,15 @@ public class TaskListServiceImpl implements TaskListService {
                 .isShared(false)
                 .ownerId(userId)
                 .ownerUser(user)
-                .shareCode(GenerateShareCode.generateShareCode(user.getUsername(), taskListDTO.getName()))
                 .color(taskListDTO.getColor() != null ? taskListDTO.getColor() : "#3b82f6")
                 .build();
 
         if (taskListDTO.getColor() != null){
             taskList.setColor(taskList.getColor());
         }
-        taskListRepository.save(taskList);
+        taskList = taskListRepository.save(taskList);
+
+        saveUserTaskList(userId, user, taskList.getId(), taskList, UserTaskList.Role.HOST);
 
         return TaskListResponse.toTaskList(taskList);
     }
@@ -90,13 +92,14 @@ public class TaskListServiceImpl implements TaskListService {
             throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED, "Only owner can update this task list");
         }
 
-        if (!taskList.getName().equals(taskListDTO.getName()) &&
-                taskListRepository.existByNameAndUserId(taskListDTO.getName(), userId).isPresent()) {
-            throw new TaskListException(ErrorCode.TASKLIST_ALREADY_EXIST, "Already exist another list with name: " + taskListDTO.getName());
+        if (taskListDTO.getName() != null) {
+            if (!taskList.getName().equals(taskListDTO.getName()) &&
+                    taskListRepository.existByNameAndUserId(taskListDTO.getName(), userId).isPresent()) {
+                throw new TaskListException(ErrorCode.TASKLIST_ALREADY_EXIST, "Already exist another list with name: " + taskListDTO.getName());
+            }
         }
-
-        taskList.setName(taskListDTO.getName());
-        taskList.setDescription(taskListDTO.getDescription());
+        taskList.setName(taskListDTO.getName() == null ? taskList.getName() : taskListDTO.getName());
+        taskList.setDescription(taskListDTO.getDescription() == null ? taskList.getDescription() : taskListDTO.getDescription());
 
         if (taskListDTO.getColor() != null) {
             taskList.setColor(taskListDTO.getColor());
@@ -109,7 +112,7 @@ public class TaskListServiceImpl implements TaskListService {
     @Override
     public void deleteTaskList(long taskListId, long userId) {
         TaskList taskList = taskListRepository.findById(taskListId)
-                .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND, "TaskList not found")); // Exception: TaskList not found
+                .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND, "TaskList not found"));
 
         if (!taskList.getOwnerId().equals(userId)) {
             throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED, "Only owner can delete this task list");
@@ -125,7 +128,7 @@ public class TaskListServiceImpl implements TaskListService {
     @Override
     public TaskListResponse shareTaskList(long taskListId, long userId) {
         TaskList taskList = taskListRepository.findById(taskListId)
-                .orElseThrow(() -> new RuntimeException("TaskList not found")); // Exception: TaskList not found
+                .orElseThrow(() -> new TaskException(ErrorCode.TASKLIST_NOT_FOUND, "TaskList not found"));
 
         if (!taskList.getOwnerId().equals(userId)) {
             throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED, "Only owner can share this task list");
@@ -150,7 +153,7 @@ public class TaskListServiceImpl implements TaskListService {
     @Override
     public TaskListResponse joinTaskListByShareCode(String shareCode, long userId) {
         TaskList taskList = taskListRepository.findByShareCode(shareCode)
-                .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_INVALID_SHARECODE, "Invalid share code")); // Exception: Invalid share code
+                .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_INVALID_SHARECODE, "Invalid share code"));
 
         if (!taskList.getIsShared()) {
             throw new TaskListException(ErrorCode.TASKLIST_NOT_SHARED, "TaskList is not shared");
@@ -167,18 +170,21 @@ public class TaskListServiceImpl implements TaskListService {
             throw new TaskListException(ErrorCode.TASKLIST_CANNOT_JOIN, "User is already a member of this task list");
         }
 
-        UserTaskList userTaskList = UserTaskList.builder()
-                .userId(userId)
-                .taskListId(taskList.getId())
-                .owner(user)
-                .taskList(taskList)
-                .role(UserTaskList.Role.MEMBER)
-                .build();
-
-        userTaskListRepository.save(userTaskList);
+        saveUserTaskList(userId, user, taskList.getId(), taskList, UserTaskList.Role.MEMBER);
 
         return TaskListResponse.toTaskList(taskList);
     }
 
+
+    private void saveUserTaskList(long userId, User owner,  long taskListId, TaskList taskList, UserTaskList.Role role){
+        UserTaskList userTaskList = UserTaskList.builder()
+                .userId(userId)
+                .taskListId(taskListId)
+                .taskList(taskList)
+                .owner(owner)
+                .role(role)
+                .build();
+        userTaskListRepository.save(userTaskList);
+    }
 
 }
