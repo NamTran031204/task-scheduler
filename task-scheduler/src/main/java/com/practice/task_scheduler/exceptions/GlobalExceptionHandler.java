@@ -9,6 +9,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -89,6 +90,22 @@ public class GlobalExceptionHandler{
                         .path(request.getDescription(false))
                         .error(errorCode.name())
                         .build());
+    }
+
+    @ExceptionHandler(UnexpectedRollbackException.class)
+    public ResponseEntity<ErrorResponse> handleUnexpectedRollbackException(
+            UnexpectedRollbackException e,
+            WebRequest request
+    ) {
+        ErrorCode errorCode = ErrorCode.DATABASE_EXCEPTION;
+
+        return ResponseEntity.status(errorCode.getHttpStatusCode()).body(ErrorResponse.builder()
+                .status(errorCode.getCode())
+                .message("Transaction rollback occurred: " + e.getMessage())
+                .timestamp(new Date())
+                .path(request.getDescription(false))
+                .error(errorCode.name())
+                .build());
     }
 
 }
