@@ -1,20 +1,17 @@
 package com.practice.task_scheduler.services.implement;
 
 import com.practice.task_scheduler.entities.dtos.TaskDTO;
-import com.practice.task_scheduler.entities.models.Attachment;
-import com.practice.task_scheduler.entities.models.Task;
-import com.practice.task_scheduler.entities.models.TaskList;
-import com.practice.task_scheduler.entities.models.User;
-import com.practice.task_scheduler.entities.responses.TaskListResponse;
+import com.practice.task_scheduler.entities.models.*;
 import com.practice.task_scheduler.entities.responses.TaskResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
-import com.practice.task_scheduler.exceptions.exception.FileProcessException;
 import com.practice.task_scheduler.exceptions.exception.TaskException;
 import com.practice.task_scheduler.exceptions.exception.TaskListException;
 import com.practice.task_scheduler.exceptions.exception.UserRequestException;
 import com.practice.task_scheduler.repositories.*;
+import com.practice.task_scheduler.services.TaskReminderService;
 import com.practice.task_scheduler.services.TaskService;
 import com.practice.task_scheduler.utils.StoreFile;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -40,9 +37,16 @@ public class TaskServiceImpl implements TaskService {
     UserTaskListRepository userTaskListRepository;
 
     @Autowired
+    TaskHistoryRepository taskHistoryRepository;
+
+    @Autowired
     AttachmentRepository attachmentRepository;
 
+    @Autowired
+    TaskReminderService taskReminderService;
+
     @Override
+    @Transactional
     public TaskResponse createTask(long userId, TaskDTO taskDTO) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserRequestException(ErrorCode.USER_NOT_FOUND));
@@ -82,10 +86,16 @@ public class TaskServiceImpl implements TaskService {
                 .build();
 
         Task savedTask = taskRepository.save(task);
-        return TaskResponse.toTask(task);
+        updateTaskHistory(savedTask.getId(), userId, TaskHistory.HistoryAction.CREATED, null, savedTask.getId().toString(), "Task Created");
+
+        if (savedTask.getDueDate() != null) {
+            taskReminderService.autoCreateOrUpdateReminder(savedTask.getId(), userId);
+        }
+        return TaskResponse.toTask(savedTask);
     }
 
     @Override
+    @Transactional
     public String uploadTaskFiles(long taskId, long userId, List<MultipartFile> files) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserRequestException(ErrorCode.USER_NOT_FOUND));
@@ -100,13 +110,14 @@ public class TaskServiceImpl implements TaskService {
             throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED, "User is not owner or member of this task list");
         }
 
+        String newValue = "upload: {";
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
                 if (file.getSize() > 0) {
-                    String fileName = null;
                     StoreFile.checkFile(file);
 
-                    fileName = StoreFile.storeFile(file);
+                    String fileName = StoreFile.storeFile(file);
+                    newValue += fileName + ",";
 
                     Attachment fileAttachment = Attachment.builder()
                             .taskId(task.getId())
@@ -121,6 +132,10 @@ public class TaskServiceImpl implements TaskService {
                 }
             }
         }
+        newValue += "}";
+        String oldValue = taskHistoryRepository.findByTaskIdAndUserId(task.getId(), user.getId());
+
+        updateTaskHistory(taskId, userId, TaskHistory.HistoryAction.UPDATED, oldValue, newValue, "upload files");
         return "upload files completed";
     }
 
@@ -165,6 +180,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional
     public TaskResponse updateTask(long taskId, long userId, TaskDTO taskDTO) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new TaskException(ErrorCode.TASK_NOT_FOUND, "Task not found"));
@@ -198,22 +214,37 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignedTo(taskDTO.getAssignedTo() == null ? task.getAssignedTo(): taskDTO.getAssignedTo());
 
         Task updatedTask = taskRepository.save(task);
+
+        String oldValue = taskHistoryRepository.findByTaskIdAndUserId(taskId, userId);
+
+        updateTaskHistory(taskId, userId, TaskHistory.HistoryAction.UPDATED, oldValue, "update infor", "update");
+
+        if (task.getDueDate() != null) {
+            taskReminderService.autoCreateOrUpdateReminder(task.getId(), userId);
+        }
         return TaskResponse.toTask(updatedTask);
     }
 
     @Override
+    @Transactional
     public void deleteTask(long taskId, long userId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new TaskException(ErrorCode.TASK_NOT_FOUND, "Task not found"));
+        TaskList taskList = taskListRepository.findById(task.getTaskListId())
+                .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND, "Cannot find task list"));
 
-        if (!task.getCreatedBy().equals(userId)) {
-            throw new TaskException(ErrorCode.TASK_ACCESS_DENIED, "Only task creator can delete this task");
+        if (!task.getCreatedBy().equals(userId) && !taskList.getOwnerId().equals(userId)) {
+            throw new TaskException(ErrorCode.TASK_ACCESS_DENIED, "Only user with permission can delete this task");
         }
 
+        String oldValue = taskHistoryRepository.findByTaskIdAndUserId(taskId, task.getCreatedBy());
+
+        updateTaskHistory(taskId, userId, TaskHistory.HistoryAction.DELETED, oldValue, "delete task with id: %d" + taskId, "delete");
         taskRepository.delete(task);
     }
 
     @Override
+    @Transactional
     public TaskResponse completeTask(long taskId, long userId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new TaskException(ErrorCode.TASK_NOT_FOUND, "Task not found"));
@@ -230,10 +261,41 @@ public class TaskServiceImpl implements TaskService {
         task.setCompletedAt(LocalDateTime.now());
 
         Task updatedTask = taskRepository.save(task);
+
+        String oldValue = taskHistoryRepository.findByTaskIdAndUserId(taskId, task.getCreatedBy());
+
+        updateTaskHistory(taskId, task.getCreatedBy(), TaskHistory.HistoryAction.COMPLETED, oldValue, "Complete", "Task Complete");
+
         return TaskResponse.toTask(updatedTask);
     }
 
     @Override
+    public TaskResponse undoComplete(long taskId, long userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new TaskException(ErrorCode.TASK_NOT_FOUND, "Task not found"));
+
+        if (task.getCreatedBy() != userId && userId != task.getAssignedTo()) {
+            throw new TaskException(ErrorCode.TASK_ACCESS_DENIED, "Only task creator or assigned user can complete this task");
+        }
+
+        if (task.getIsCompleted()) {
+            throw new TaskException(ErrorCode.TASK_IS_NOT_COMPLETED, "Task is NOT completed");
+        }
+
+        task.setIsCompleted(false);
+        task.setCompletedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+
+        String oldValue = taskHistoryRepository.findByTaskIdAndUserId(taskId, task.getCreatedBy());
+
+        updateTaskHistory(taskId, task.getCreatedBy(), TaskHistory.HistoryAction.COMPLETED, oldValue, "Undo Complete", "Undo Task Complete");
+
+        return TaskResponse.toTask(updatedTask);
+    }
+
+    @Override
+    @Transactional
     public TaskResponse assignTask(long taskId, long userId, long assignedToUserId) {
 
         Task task = taskRepository.findById(taskId)
@@ -258,6 +320,23 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignedTo(assignedToUserId);
         Task updatedTask = taskRepository.save(task);
 
+        String oldValue = taskHistoryRepository.findByTaskIdAndUserId(taskId, task.getCreatedBy());
+
+        updateTaskHistory(taskId, task.getCreatedBy(), TaskHistory.HistoryAction.ASSIGNED, oldValue, "Assign", "Task assigned");
+
         return TaskResponse.toTask(updatedTask);
+    }
+
+    private void updateTaskHistory(long taskId, long userId, TaskHistory.HistoryAction action, String oldValue, String newValue, String description){
+
+        TaskHistory taskHistory = TaskHistory.builder()
+                .taskId(taskId)
+                .userId(userId)
+                .action(action)
+                .oldValue(oldValue)
+                .newValue(newValue)
+                .description(description)
+                .build();
+        taskHistoryRepository.save(taskHistory);
     }
 }

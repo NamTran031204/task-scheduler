@@ -157,8 +157,8 @@ CREATE TABLE task_history (
     task_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     action ENUM('CREATED', 'UPDATED', 'COMPLETED', 'DELETED', 'ASSIGNED', 'RECURRING_CREATED') NOT NULL,
-    old_value JSON,
-    new_value JSON,
+    old_value TEXT,
+    new_value TEXT,
     description VARCHAR(500),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 

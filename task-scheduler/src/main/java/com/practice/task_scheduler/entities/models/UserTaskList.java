@@ -41,6 +41,6 @@ public class UserTaskList {
     private TaskList taskList;
 
     public enum Role {
-        HOST,MEMBER
+        HOST, MEMBER
     }
 }

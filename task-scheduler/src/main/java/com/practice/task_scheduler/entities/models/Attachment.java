@@ -38,6 +38,7 @@ public class Attachment {
     @Lob
     private String noteContent;
 
+    @Enumerated(value = EnumType.STRING)
     @Column(name = "attachment_type", nullable = false)
     private AttachmentType attachmentType;
 
@@ -64,5 +65,19 @@ public class Attachment {
 
     public enum AttachmentType{
         FILE, NOTE, BOTH
+    }
+
+    @PreUpdate
+    private void validateAttachment() {
+        if (attachmentType == AttachmentType.FILE) {
+            if (fileName == null || filePath == null) {
+                throw new IllegalArgumentException("FILE attachment must have fileName and filePath");
+            }
+        }
+        if (attachmentType == AttachmentType.NOTE) {
+            if (noteContent == null || noteContent.trim().isEmpty()) {
+                throw new IllegalArgumentException("NOTE attachment must have noteContent");
+            }
+        }
     }
 }

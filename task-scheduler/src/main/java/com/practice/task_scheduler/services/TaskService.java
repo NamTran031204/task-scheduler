@@ -18,5 +18,6 @@ public interface TaskService {
     TaskResponse updateTask(long taskId, long userId, TaskDTO taskDTO);
     void deleteTask(long taskId, long userId);
     TaskResponse completeTask(long taskId, long userId);
+    TaskResponse undoComplete(long taskId, long userId);
     TaskResponse assignTask(long taskId, long userId, long assignedToUserId);
 }

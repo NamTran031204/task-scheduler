@@ -24,13 +24,14 @@ public class TaskHistory {
     @Column(name = "user_id")
     private Long userId;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private HisoryAction action;
+    private HistoryAction action;
 
-    @Column(name = "old_value", columnDefinition = "JSON")
+    @Column(name = "old_value")
     private String oldValue;
 
-    @Column(name = "new_value", columnDefinition = "JSON")
+    @Column(name = "new_value")
     private String newValue;
 
     @Column(name = "description", length = 500)
@@ -54,7 +55,7 @@ public class TaskHistory {
     private User user;
 
 
-    public enum HisoryAction{
+    public enum HistoryAction {
         CREATED, UPDATED, COMPLETED, DELETED, ASSIGNED, RECURRING_CREATED
     }
 }

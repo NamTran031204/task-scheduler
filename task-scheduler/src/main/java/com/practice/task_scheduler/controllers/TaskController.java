@@ -16,7 +16,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -27,7 +26,7 @@ public class TaskController {
 
     private final TaskService taskService;
 
-    @PostMapping(value = "/create/user/{userId}")
+    @PostMapping(value = "/user/{userId}/create")
     public ResponseEntity<?> createTask(
             @PathVariable("userId") long userId,
             @Valid @RequestBody TaskDTO taskDTO
@@ -35,24 +34,24 @@ public class TaskController {
         return ResponseEntity.ok(taskService.createTask(userId, taskDTO));
     }
 
-    @PutMapping(value = "/create/user/{userId}/task/{taskId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/user/{userId}/create/task/{taskId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadAttachment(
             @PathVariable("userId") long userId,
             @PathVariable("taskId") long taskId,
-            @ModelAttribute("file") List<MultipartFile> files
+            @ModelAttribute("files") List<MultipartFile> files
     ){
         return ResponseEntity.ok(taskService.uploadTaskFiles(taskId, userId, files));
     }
 
-    @GetMapping("/{id}/user/{userId}")
+    @GetMapping("/user/{userId}/{taskId}")
     public ResponseEntity<?> getTaskById(
-            @PathVariable("id") long id,
+            @PathVariable("id") long taskId,
             @PathVariable("userId") long userId
     ) {
-        return ResponseEntity.ok(taskService.getTaskById(id, userId));
+        return ResponseEntity.ok(taskService.getTaskById(taskId, userId));
     }
 
-    @GetMapping("/task-list/{taskListId}/user/{userId}")
+    @GetMapping("/user/{userId}/task-list/{taskListId}")
     public ResponseEntity<?> getTasksByTaskListId(
             @PathVariable("taskListId") long taskListId,
             @PathVariable("userId") long userId,
@@ -62,7 +61,6 @@ public class TaskController {
         PageRequest pageRequest = PageRequest.of(page, record, Sort.by("createdAt").descending());
         Page<TaskResponse> taskPage = taskService.getTasksByTaskListId(taskListId, userId, pageRequest);
         return ResponseEntity.ok(taskPage);
-
     }
 
     @GetMapping("/user/{userId}")
@@ -76,7 +74,7 @@ public class TaskController {
         return ResponseEntity.ok(taskPage);
     }
 
-    @PutMapping("/update/{id}/user/{userId}")
+    @PutMapping("/user/{userId}/update/{id}")
     public ResponseEntity<?> updateTask(
             @PathVariable("id") long id,
             @PathVariable("userId") long userId,
@@ -85,7 +83,7 @@ public class TaskController {
         return ResponseEntity.ok(taskService.updateTask(id, userId, taskDTO));
     }
 
-    @DeleteMapping("/delete/{id}/user/{userId}")
+    @DeleteMapping("/user/{userId}/delete/{id}")
     public ResponseEntity<?> deleteTask(
             @PathVariable("id") long id,
             @PathVariable("userId") long userId
@@ -94,7 +92,7 @@ public class TaskController {
         return ResponseEntity.ok("Task deleted successfully");
     }
 
-    @PutMapping("/complete/{id}/user/{userId}")
+    @PutMapping("/user/{userId}/complete/{id}")
     public ResponseEntity<?> completeTask(
             @PathVariable("id") long id,
             @PathVariable("userId") long userId
@@ -102,12 +100,20 @@ public class TaskController {
         return ResponseEntity.ok(taskService.completeTask(id, userId));
     }
 
-    @PutMapping("/assign/{id}/user/{userId}/assign-to/{assignedToUserId}")
+    @PutMapping("/user/{userId}/assign/{id}/assign-to/{assignedToUserId}")
     public ResponseEntity<?> assignTask(
             @PathVariable("id") long id,
             @PathVariable("userId") long userId,
             @PathVariable("assignedToUserId") long assignedToUserId
     ) {
         return ResponseEntity.ok(taskService.assignTask(id, userId, assignedToUserId));
+    }
+
+    @PutMapping("/user/{userId}/undo_complete/{taskId}")
+    public ResponseEntity<?> revertTaskComplete(
+            @PathVariable("userId") long userId,
+            @PathVariable("taskId") long taskId
+    ) {
+        return ResponseEntity.ok(taskService.undoComplete(taskId, userId));
     }
 }

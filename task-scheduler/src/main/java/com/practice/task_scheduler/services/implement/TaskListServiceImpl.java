@@ -51,7 +51,7 @@ public class TaskListServiceImpl implements TaskListService {
                 .description(taskListDTO.getDescription())
                 .isShared(false)
                 .ownerId(userId)
-                .ownerUser(user)
+//                .ownerUser(user)
                 .color(taskListDTO.getColor() != null ? taskListDTO.getColor() : "#3b82f6")
                 .build();
 
@@ -180,8 +180,8 @@ public class TaskListServiceImpl implements TaskListService {
         UserTaskList userTaskList = UserTaskList.builder()
                 .userId(userId)
                 .taskListId(taskListId)
-                .taskList(taskList)
-                .owner(owner)
+//                .taskList(taskList)
+//                .owner(owner)
                 .role(role)
                 .build();
         userTaskListRepository.save(userTaskList);

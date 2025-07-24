@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
@@ -28,6 +29,7 @@ public class TaskDTO {
     private Task.Priority priority;
 
     @JsonProperty("due_date")
+//    @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
     private LocalDateTime dueDate;
 
     @JsonProperty("task_list_id")

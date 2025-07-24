@@ -27,7 +27,7 @@ public class TaskList{
     private String description;
 
     @Column(length = 7)
-    private String color = "3b82f6";
+    private String color = "#3b82f6";
 
     @Column(name = "is_shared")
     private Boolean isShared = false;

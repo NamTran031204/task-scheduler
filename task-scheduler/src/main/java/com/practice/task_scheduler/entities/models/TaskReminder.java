@@ -26,6 +26,7 @@ public class TaskReminder {
 
     private String message;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "reminder_type")
     private RemindType remindType = RemindType.EMAIL;
 
