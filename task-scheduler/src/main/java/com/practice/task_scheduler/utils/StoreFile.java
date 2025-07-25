@@ -19,7 +19,6 @@ public class StoreFile {
 
     public static final String storePath = "uploads/";
 
-
     public static String storeFile(MultipartFile file) throws FileProcessException {
         try {
             String fileName = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
@@ -45,13 +44,7 @@ public class StoreFile {
     }
 
     public static void checkImage(MultipartFile file) throws FileProcessException{
-        if(file.getSize() == 0) { // kiem tra so luong anh
-            throw new FileProcessException(ErrorCode.FILE_NOT_EXIST);
-        }
-
-        if (file.getSize() > 10 * 1024 * 1024){
-            throw new FileProcessException(ErrorCode.FILE_TOO_LARGE);
-        }
+        checkFile(file);
 
         String contentType = file.getContentType();
         if(contentType == null || !contentType.startsWith("image/")) {
@@ -60,11 +53,10 @@ public class StoreFile {
     }
 
     public static void checkFile(MultipartFile file) throws FileProcessException{
-        if(file.getSize() == 0) { // kiem tra so luong anh
+        if (file == null || file.isEmpty()) {
             throw new FileProcessException(ErrorCode.FILE_NOT_EXIST);
         }
-
-        if (file.getSize() > 10 * 1024 * 1024){
+        if (file.getSize() > 10 * 1024 * 1024) { // 10MB
             throw new FileProcessException(ErrorCode.FILE_TOO_LARGE);
         }
     }

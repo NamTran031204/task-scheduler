@@ -16,6 +16,7 @@ import com.practice.task_scheduler.services.TaskListService;
 import com.practice.task_scheduler.services.UserService;
 import com.practice.task_scheduler.utils.GenerateShareCode;
 import jakarta.validation.constraints.Max;
+import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -25,16 +26,14 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class TaskListServiceImpl implements TaskListService {
 
-    @Autowired
-    UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    TaskListRepository taskListRepository;
+    private final TaskListRepository taskListRepository;
 
-    @Autowired
-    UserTaskListRepository userTaskListRepository;
+    private final UserTaskListRepository userTaskListRepository;
 
     @Override
     public TaskListResponse createTaskList(long userId, TaskListDTO taskListDTO) {

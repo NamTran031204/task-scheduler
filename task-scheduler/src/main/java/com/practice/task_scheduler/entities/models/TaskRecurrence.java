@@ -3,6 +3,7 @@ package com.practice.task_scheduler.entities.models;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 
@@ -31,7 +32,7 @@ public class TaskRecurrence {
     private Integer recurrenceInterval = 1;
 
     @Column(name = "recurrence_end_date")
-    private Date recurrenceEndDate;
+    private LocalDate recurrenceEndDate;
 
     @Column(name = "next_due_date")
     private LocalDateTime nextDueDate;

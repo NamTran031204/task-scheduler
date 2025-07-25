@@ -8,10 +8,12 @@ import com.practice.task_scheduler.exceptions.exception.TaskException;
 import com.practice.task_scheduler.exceptions.exception.TaskListException;
 import com.practice.task_scheduler.exceptions.exception.UserRequestException;
 import com.practice.task_scheduler.repositories.*;
+import com.practice.task_scheduler.services.TaskRecurrenceService;
 import com.practice.task_scheduler.services.TaskReminderService;
 import com.practice.task_scheduler.services.TaskService;
 import com.practice.task_scheduler.utils.StoreFile;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,28 +24,24 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
 
-    @Autowired
-    UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    TaskRepository taskRepository;
+    private final TaskRepository taskRepository;
 
-    @Autowired
-    TaskListRepository taskListRepository;
+    private final TaskListRepository taskListRepository;
 
-    @Autowired
-    UserTaskListRepository userTaskListRepository;
+    private final UserTaskListRepository userTaskListRepository;
 
-    @Autowired
-    TaskHistoryRepository taskHistoryRepository;
+    private final TaskHistoryRepository taskHistoryRepository;
 
-    @Autowired
-    AttachmentRepository attachmentRepository;
+    private final AttachmentRepository attachmentRepository;
 
-    @Autowired
-    TaskReminderService taskReminderService;
+    private final TaskReminderService taskReminderService;
+
+    private final TaskRecurrenceService taskRecurrenceService;
 
     @Override
     @Transactional
@@ -266,6 +264,7 @@ public class TaskServiceImpl implements TaskService {
 
         updateTaskHistory(taskId, task.getCreatedBy(), TaskHistory.HistoryAction.COMPLETED, oldValue, "Complete", "Task Complete");
 
+        taskRecurrenceService.autoSaveTaskRecurrenceOnUpdate(taskId);
         return TaskResponse.toTask(updatedTask);
     }
 

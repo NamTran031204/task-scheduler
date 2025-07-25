@@ -1,9 +1,7 @@
 package com.practice.task_scheduler.exceptions;
 
-import com.practice.task_scheduler.exceptions.exception.FileProcessException;
-import com.practice.task_scheduler.exceptions.exception.TaskException;
-import com.practice.task_scheduler.exceptions.exception.TaskListException;
-import com.practice.task_scheduler.exceptions.exception.UserRequestException;
+import com.practice.task_scheduler.exceptions.exception.*;
+import org.apache.tomcat.websocket.WsWebSocketContainer;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -23,7 +21,13 @@ import java.util.Date;
 @RestControllerAdvice
 public class GlobalExceptionHandler{
 
-    @ExceptionHandler({UserRequestException.class, FileProcessException.class, TaskListException.class, TaskException.class})
+    @ExceptionHandler({
+            UserRequestException.class,
+            FileProcessException.class,
+            TaskListException.class,
+            TaskException.class,
+            RecurrenceException.class
+    })
     public ResponseEntity<ErrorResponse> handleException(Exception exception, WebRequest request){
         ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
 
@@ -35,6 +39,8 @@ public class GlobalExceptionHandler{
             errorCode = ((TaskListException) exception).getErrorCode();
         }else if (exception instanceof TaskException){
             errorCode = ((TaskException) exception).getErrorCode();
+        }else if (exception instanceof RecurrenceException){
+            errorCode = ((RecurrenceException) exception).getErrorCode();
         }
 
         return ResponseEntity.status(errorCode.getHttpStatusCode()).body(ErrorResponse.builder()
@@ -102,6 +108,22 @@ public class GlobalExceptionHandler{
         return ResponseEntity.status(errorCode.getHttpStatusCode()).body(ErrorResponse.builder()
                 .status(errorCode.getCode())
                 .message("Transaction rollback occurred: " + e.getMessage())
+                .timestamp(new Date())
+                .path(request.getDescription(false))
+                .error(errorCode.name())
+                .build());
+    }
+
+    @ExceptionHandler(NullPointerException.class)
+    public ResponseEntity<ErrorResponse> handleNullPointerException(
+            NullPointerException e,
+            WebRequest request
+    ){
+        ErrorCode errorCode = ErrorCode.NULL_POINTER_EXCEPTION;
+
+        return ResponseEntity.status(errorCode.getHttpStatusCode()).body(ErrorResponse.builder()
+                .status(errorCode.getCode())
+                .message("Null pointer: " + e.getMessage().replaceAll("\"", "'"))
                 .timestamp(new Date())
                 .path(request.getDescription(false))
                 .error(errorCode.name())
