@@ -26,7 +26,8 @@ public class GlobalExceptionHandler{
             FileProcessException.class,
             TaskListException.class,
             TaskException.class,
-            RecurrenceException.class
+            RecurrenceException.class,
+            UserTaskListException.class
     })
     public ResponseEntity<ErrorResponse> handleException(Exception exception, WebRequest request){
         ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;

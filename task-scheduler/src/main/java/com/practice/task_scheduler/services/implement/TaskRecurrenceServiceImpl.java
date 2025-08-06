@@ -104,9 +104,8 @@ public class TaskRecurrenceServiceImpl implements TaskRecurrenceService {
 
     @Override
     @Transactional
-    public void autoSaveTaskRecurrenceOnUpdate(long taskId) {
-        Task task = taskRepository.findById(taskId).orElseThrow(() -> new TaskException(ErrorCode.TASK_NOT_FOUND));
-        TaskRecurrence taskRecurrence = taskRecurrenceRepository.findByTaskId(taskId);
+    public void autoSaveTaskRecurrenceOnUpdate(Task task) {
+        TaskRecurrence taskRecurrence = taskRecurrenceRepository.findByTaskId(task.getId());
         if (taskRecurrence == null){
             return;
         }
@@ -120,7 +119,7 @@ public class TaskRecurrenceServiceImpl implements TaskRecurrenceService {
                 }
             }
             taskRecurrence.setNextDueDate(nextDueDate);
-            taskRepository.updateNextDueDateById(taskId, nextDueDate);
+            taskRepository.updateNextDueDateById(task.getId(), nextDueDate);
         } else taskRecurrence.setIsActive(false);
         taskRecurrenceRepository.save(taskRecurrence);
     }

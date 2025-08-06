@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0.43-debian
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: task_scheduler
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./new-task-scheduler.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - taskscheduler-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  task-scheduler:
+    image: namchan/task-scheduler:0.0.1
+    container_name: task-scheduler
+    ports:
+      - "8088:8088"
+    environment:
+      DBMS_CONNECTION: jdbc:mysql://mysql:3306/task_scheduler?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh&autoReconnect=true
+      DBMS_USERNAME: root
+      DBMS_PASSWORD: root
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - taskscheduler-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  taskscheduler-network:
+    driver: bridge

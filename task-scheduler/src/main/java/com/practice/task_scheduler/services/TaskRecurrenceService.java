@@ -9,7 +9,7 @@ public interface TaskRecurrenceService {
 
     TaskRecurrenceResponse createRecurrence(long taskId, TaskRecurrenceDTO taskRecurrenceDTO);
     void updateAllTaskRecurrenceSchedule();
-    void autoSaveTaskRecurrenceOnUpdate(long taskId);
+    void autoSaveTaskRecurrenceOnUpdate(Task task);
     TaskRecurrenceResponse getRecurrenceByTaskId(long taskId);
     TaskRecurrenceResponse updateRecurrence(long id, TaskRecurrenceDTO taskRecurrenceDTO);
     void deleteRecurrence(long id);

@@ -82,4 +82,12 @@ public class TaskListController {
     ) {
         return ResponseEntity.ok(taskListService.joinTaskListByShareCode(shareCode, userId));
     }
+
+    @PutMapping("/user/{userId}/leave/taskList/{taskListId}")
+    public ResponseEntity<?> leaveTaskList(
+            @PathVariable("userId") long userId,
+            @PathVariable("taskListId") long taskListId
+    ){
+        return ResponseEntity.ok(taskListService.userLeaveTaskList(userId, taskListId));
+    }
 }

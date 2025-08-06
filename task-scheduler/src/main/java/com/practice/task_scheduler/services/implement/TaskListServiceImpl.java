@@ -5,16 +5,20 @@ import com.practice.task_scheduler.entities.models.TaskList;
 import com.practice.task_scheduler.entities.models.User;
 import com.practice.task_scheduler.entities.models.UserTaskList;
 import com.practice.task_scheduler.entities.responses.TaskListResponse;
+import com.practice.task_scheduler.entities.responses.UserResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
 import com.practice.task_scheduler.exceptions.exception.TaskException;
 import com.practice.task_scheduler.exceptions.exception.TaskListException;
 import com.practice.task_scheduler.exceptions.exception.UserRequestException;
+import com.practice.task_scheduler.exceptions.exception.UserTaskListException;
 import com.practice.task_scheduler.repositories.TaskListRepository;
+import com.practice.task_scheduler.repositories.TaskRepository;
 import com.practice.task_scheduler.repositories.UserRepository;
 import com.practice.task_scheduler.repositories.UserTaskListRepository;
 import com.practice.task_scheduler.services.TaskListService;
 import com.practice.task_scheduler.services.UserService;
 import com.practice.task_scheduler.utils.GenerateShareCode;
+import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
@@ -23,6 +27,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,6 +39,8 @@ public class TaskListServiceImpl implements TaskListService {
     private final TaskListRepository taskListRepository;
 
     private final UserTaskListRepository userTaskListRepository;
+
+    private final TaskRepository taskRepository;
 
     @Override
     public TaskListResponse createTaskList(long userId, TaskListDTO taskListDTO) {
@@ -126,18 +133,10 @@ public class TaskListServiceImpl implements TaskListService {
 
     @Override
     public TaskListResponse shareTaskList(long taskListId, long userId) {
-        TaskList taskList = taskListRepository.findById(taskListId)
-                .orElseThrow(() -> new TaskException(ErrorCode.TASKLIST_NOT_FOUND, "TaskList not found"));
+        TaskList taskList = taskListRepository.findByIdAndOwnerId(taskListId, userId)
+                .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND));
 
-        if (!taskList.getOwnerId().equals(userId)) {
-            throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED, "Only owner can share this task list");
-        }
-
-        if (taskList.getIsShared()) {
-            throw new TaskListException(ErrorCode.TASKLIST_ALREADY_EXIST, "TaskList is already shared");
-        }
-
-        taskList.setIsShared(true);
+        taskList.setIsShared(!taskList.getIsShared());
 
         if (taskList.getShareCode() == null) {
             User owner = userRepository.findById(userId)
@@ -172,6 +171,34 @@ public class TaskListServiceImpl implements TaskListService {
         saveUserTaskList(userId, user, taskList.getId(), taskList, UserTaskList.Role.MEMBER);
 
         return TaskListResponse.toTaskList(taskList);
+    }
+
+    @Override
+    public List<UserResponse> getAllUserByTaskList(long taskListId) {
+        return List.of();
+    }
+
+    @Override
+    @Transactional
+    public String userLeaveTaskList(long userId, long taskListId) {
+        UserTaskList userTaskList = userTaskListRepository.findByUserIdAndTaskListId(userId, taskListId)
+                .orElseThrow(() -> new UserTaskListException(ErrorCode.USERTASKLIST_NOT_FOUND));
+        userTaskListRepository.deleteById(userTaskList.getId());
+        if (userTaskList.getRole().equals(UserTaskList.Role.HOST)){
+            UserTaskList newHost = userTaskListRepository.findByTaskListIdIdOrderByJoinedAt(taskListId)
+                    .orElse(null);
+            if(newHost == null){
+                taskListRepository.deleteById(taskListId);
+                return "Cannot find authority, so delete task list";
+            }
+            newHost.setRole(UserTaskList.Role.HOST);
+            TaskList taskList = taskListRepository.findById(taskListId).orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND));
+            taskList.setOwnerId(newHost.getUserId());
+            taskListRepository.save(taskList);
+            userTaskListRepository.save(newHost);
+            return "Authority role HOST to new User";
+        }
+        return "Delete successfully";
     }
 
 

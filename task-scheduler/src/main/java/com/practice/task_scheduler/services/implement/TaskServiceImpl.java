@@ -264,7 +264,7 @@ public class TaskServiceImpl implements TaskService {
 
         updateTaskHistory(taskId, task.getCreatedBy(), TaskHistory.HistoryAction.COMPLETED, oldValue, "Complete", "Task Complete");
 
-        taskRecurrenceService.autoSaveTaskRecurrenceOnUpdate(taskId);
+        taskRecurrenceService.autoSaveTaskRecurrenceOnUpdate(updatedTask);
         return TaskResponse.toTask(updatedTask);
     }
 

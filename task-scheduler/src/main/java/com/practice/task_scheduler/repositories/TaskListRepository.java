@@ -22,4 +22,6 @@ public interface TaskListRepository extends JpaRepository<TaskList, Long> {
     Optional<TaskList> findByShareCode(String shareCode);
 
     long countByOwnerId(long userId);
+
+    Optional<TaskList> findByIdAndOwnerId(long id, long ownerId);
 }
