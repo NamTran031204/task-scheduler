@@ -27,7 +27,3 @@ spring:
       enabled: true
 api:
   prefix: api/v1
-
-jwt:
-  expiration: 2592000 #30days * 24h * 60m * 60s
-  secretKey: WVok1DnZJRWsPXovJVTzB6NiNWAHwRZZoH7T7GqP8Ko=

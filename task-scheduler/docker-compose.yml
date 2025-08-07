@@ -22,7 +22,10 @@ services:
       start_period: 30s
 
   task-scheduler:
-    image: namchan/task-scheduler:0.0.1
+#    image: namchan/task-scheduler:0.0.1 #su dung khi da co image
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: task-scheduler
     ports:
       - "8088:8088"

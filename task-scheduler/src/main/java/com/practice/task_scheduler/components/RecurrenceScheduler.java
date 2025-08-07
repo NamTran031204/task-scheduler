@@ -14,7 +14,7 @@ public class RecurrenceScheduler {
 
     private final TaskRecurrenceService taskRecurrenceService;
 
-    @Scheduled(fixedRate = 300000, initialDelay = 5000) // every 1 minutes
+    @Scheduled(fixedRate = 300000, initialDelay = 5000)
     private void TaskRecurrenceSchedule(){
         taskRecurrenceService.updateAllTaskRecurrenceSchedule();
     }
