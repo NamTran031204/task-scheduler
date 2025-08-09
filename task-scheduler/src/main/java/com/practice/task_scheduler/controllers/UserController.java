@@ -2,8 +2,10 @@ package com.practice.task_scheduler.controllers;
 
 import com.practice.task_scheduler.entities.dtos.UserDTO;
 import com.practice.task_scheduler.entities.dtos.UserLoginDTO;
+import com.practice.task_scheduler.entities.responses.CalendarResponse;
 import com.practice.task_scheduler.entities.responses.UserListResponse;
 import com.practice.task_scheduler.entities.responses.UserResponse;
+import com.practice.task_scheduler.services.CalendarService;
 import com.practice.task_scheduler.services.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,12 +13,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.repository.query.Param;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -26,6 +30,8 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+
+    private final CalendarService calendarService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody UserDTO userDTO){
@@ -89,5 +95,14 @@ public class UserController {
     public ResponseEntity<?> deleteUser(@PathVariable("id") long id){
         userService.deleteUser(id);
         return ResponseEntity.ok("Delete Complete");
+    }
+
+    @GetMapping("/calendar-tasks/{userId}")
+    public ResponseEntity<?> calendar(
+            @PathVariable("userId") long userId,
+            @RequestParam("start-date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("end-date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ){
+        return ResponseEntity.ok(calendarService.getTasksForCalendar(userId, startDate, endDate));
     }
 }
