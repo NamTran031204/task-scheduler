@@ -24,7 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/v1/user")
+@RequestMapping("${api.prefix}/user")
 @RequiredArgsConstructor
 @Validated
 public class UserController {

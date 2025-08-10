@@ -38,6 +38,7 @@ public class UserServiceImpl implements UserService {
                 .email(userDTO.getEmail())
                 .fullName(userDTO.getFullName())
                 .username(userDTO.getUsername())
+                .isActive(true)
                 .createdAt(userDTO.getCreatedAt())
                 .updatedAt(userDTO.getUpdatedAt())
                 .password(userDTO.getPassword())

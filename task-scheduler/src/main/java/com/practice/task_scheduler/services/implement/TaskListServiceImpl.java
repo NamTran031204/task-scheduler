@@ -4,8 +4,10 @@ import com.practice.task_scheduler.entities.dtos.TaskListDTO;
 import com.practice.task_scheduler.entities.models.TaskList;
 import com.practice.task_scheduler.entities.models.User;
 import com.practice.task_scheduler.entities.models.UserTaskList;
+import com.practice.task_scheduler.entities.projections.UserTaskListProjection;
 import com.practice.task_scheduler.entities.responses.TaskListResponse;
 import com.practice.task_scheduler.entities.responses.UserResponse;
+import com.practice.task_scheduler.entities.responses.UserTaskListResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
 import com.practice.task_scheduler.exceptions.exception.TaskException;
 import com.practice.task_scheduler.exceptions.exception.TaskListException;
@@ -22,13 +24,15 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
+import org.antlr.v4.runtime.misc.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -199,6 +203,38 @@ public class TaskListServiceImpl implements TaskListService {
             return "Authority role HOST to new User";
         }
         return "Delete successfully";
+    }
+
+    @Override
+    public UserTaskListResponse getAllMemberInTaskList(long taskListId) {
+        List<UserTaskListProjection> userTaskListProjections = userTaskListRepository.findMemberByTaskListId(taskListId);
+
+        if (userTaskListProjections.isEmpty()) {
+            return UserTaskListResponse.builder()
+                    .userByRoleAndJoinedAt(new HashMap<>())
+                    .build();
+        }
+
+        Map<UserTaskList.Role, List<Pair<UserResponse, LocalDateTime>>> userByRoleAndJoinedAt = new ConcurrentHashMap<>();
+        userByRoleAndJoinedAt.put(UserTaskList.Role.HOST, new ArrayList<>());
+        userByRoleAndJoinedAt.put(UserTaskList.Role.MEMBER, new ArrayList<>());
+
+        userTaskListProjections.parallelStream()
+                .forEach(userTaskList -> {
+                    UserResponse userResponse = UserResponse.builder()
+                            .id(userTaskList.getId())
+                            .email(userTaskList.getEmail())
+                            .username(userTaskList.getUsername())
+                            .fullName(userTaskList.getFullName())
+                            .avatarUrl(userTaskList.getAvatarUrl())
+                            .build();
+                    List<Pair<UserResponse, LocalDateTime>> users = userByRoleAndJoinedAt.get(userTaskList.getRole());
+                    users.add(new Pair<>(userResponse, userTaskList.getJoinedAt()));
+                    userByRoleAndJoinedAt.put(userTaskList.getRole(), users);
+                });
+        return UserTaskListResponse.builder()
+                .userByRoleAndJoinedAt(userByRoleAndJoinedAt)
+                .build();
     }
 
 

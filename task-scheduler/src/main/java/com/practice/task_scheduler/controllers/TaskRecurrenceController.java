@@ -11,7 +11,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/v1/task_recurrence")
+@RequestMapping("${api.prefix}/task_recurrence")
 @RequiredArgsConstructor
 @Validated
 public class TaskRecurrenceController {

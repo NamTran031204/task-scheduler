@@ -1,5 +1,12 @@
 server:
   port: 8088
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    max-connections: 10000
+    accept-count: 100
+    timeout-connection: 30000
 spring:
   datasource:
     url: ${DBMS_CONNECTION:jdbc:mysql://localhost:3306/task_scheduler?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh}
