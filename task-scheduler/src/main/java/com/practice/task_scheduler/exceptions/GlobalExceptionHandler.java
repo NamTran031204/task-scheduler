@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -78,6 +79,18 @@ public class GlobalExceptionHandler{
                         .path(request.getDescription(false))
                         .error(errorCode.name())
                         .build());
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleValidateException(MethodArgumentTypeMismatchException e, WebRequest request){
+        ErrorCode errorCode = ErrorCode.VALIDATE_ERROR;
+        return ResponseEntity.status(errorCode.getHttpStatusCode()).body(ErrorResponse.builder()
+                .status(errorCode.getCode())
+                .message(e.getMessage())
+                .timestamp(new Date())
+                .path(request.getDescription(false))
+                .error(errorCode.name())
+                .build());
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class})

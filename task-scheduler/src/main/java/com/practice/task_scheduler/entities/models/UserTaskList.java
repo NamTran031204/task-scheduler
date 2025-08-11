@@ -31,6 +31,16 @@ public class UserTaskList {
     @Column(name = "joined_at")
     private LocalDateTime joinedAt;
 
+    @PrePersist
+    protected void onCreate() {
+        joinedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        joinedAt = LocalDateTime.now();
+    }
+
 
     @JoinColumn(name = "user_id", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)

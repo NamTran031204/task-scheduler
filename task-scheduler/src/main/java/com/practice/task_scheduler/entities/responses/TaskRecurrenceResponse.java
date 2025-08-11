@@ -30,6 +30,7 @@ public class TaskRecurrenceResponse {
                 .id(taskRecurrence.getId())
                 .taskId(taskRecurrence.getTaskId())
                 .recurrenceType(taskRecurrence.getRecurrenceType())
+                .recurrenceInterval(taskRecurrence.getRecurrenceInterval())
                 .recurrenceEndDate(taskRecurrence.getRecurrenceEndDate())
                 .nextDueDate(taskRecurrence.getNextDueDate())
                 .isActive(taskRecurrence.getIsActive())
