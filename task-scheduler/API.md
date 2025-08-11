@@ -5,6 +5,31 @@
 http://localhost:8080/api/v1
 ```
 
+## Database Schema Overview
+
+### Main Tables:
+- **`users`**: Store user accounts (id, username, email, password, full_name, avatar_url, is_active, created_at, updated_at)
+- **`task_lists`**: Store task lists (id, name, description, color, is_shared, share_code, owner_id, created_at, updated_at)
+- **`tasks`**: Store tasks (id, title, description, is_completed, priority, due_date, completed_at, task_list_id, created_by, assigned_to, created_at, updated_at)
+- **`user_task_lists`**: Many-to-many relationship between users and task lists (id, user_id, task_list_id, role, joined_at)
+- **`task_reminders`**: Store task reminders (id, task_id, remind_at, message, reminder_type, is_sent, sent_at, created_by, created_at)
+- **`task_recurrences`**: Store task recurrence patterns (id, task_id, recurrence_type, recurrence_interval, recurrence_end_date, next_due_date, is_active, created_at, updated_at)
+- **`attachments`**: Store file attachments (id, task_id, file_name, file_path, file_size, file_type, note_content, attachment_type, uploaded_by, uploaded_at)
+
+### Key Relationships:
+- Users can own multiple task lists (1:N)
+- Users can be members of multiple task lists via user_task_lists (N:N)
+- Task lists contain multiple tasks (1:N)
+- Tasks can be assigned to users (N:1)
+- Tasks can have multiple reminders (1:N)
+- Tasks can have recurrence patterns (1:1)
+- Tasks can have multiple attachments (1:N)
+
+### Access Control:
+- Users can only access task lists they are members of
+- Task operations require membership in the containing task list
+- Only task list owners can manage sharing and member permissions
+
 ## Error Response Structure
 All error responses follow this format:
 ```json
@@ -25,6 +50,11 @@ All error responses follow this format:
 - **Endpoint**: `/user/register`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: Register a new user account
+- **Database Storage**: 
+  - **Primary Table**: `users`
+    - **Operation**: INSERT
+    - **Fields affected**: `username`, `email`, `password` (encrypted), `full_name`, `is_active` (default: true), `created_at`, `updated_at`
+    - **Auto-generated**: `id`, `created_at`, `updated_at`
 - **Request Body** (UserDTO):
 ```json
 {
@@ -54,6 +84,11 @@ All error responses follow this format:
 - **Endpoint**: `/user/login`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: Authenticate user login
+- **Database Storage**: 
+  - **Table**: `users`
+  - **Operation**: SELECT
+  - **Fields queried**: `id`, `username`, `email`, `password`, `full_name`, `is_active`
+  - **Authentication**: Password comparison with stored encrypted password
 - **Request Body** (UserLoginDTO):
 ```json
 {
@@ -80,6 +115,11 @@ All error responses follow this format:
 - **Endpoint**: `/user/update_avatar/{id}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Update user profile avatar
+- **Database Storage**: 
+  - **Table**: `users`
+  - **Operation**: UPDATE
+  - **Fields affected**: `avatar_url`, `updated_at`
+  - **File storage**: Avatar file saved to file system, URL stored in database
 - **Path Parameters**: 
   - `id` (long): User ID
 - **Request Body**: `MultipartFile` (form-data with key "avatar")
@@ -104,6 +144,10 @@ All error responses follow this format:
 - **Endpoint**: `/user/{id}`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve user information by ID
+- **Database Storage**: 
+  - **Table**: `users`
+  - **Operation**: SELECT
+  - **Fields queried**: `id`, `username`, `email`, `full_name`, `avatar_url`, `is_active`, `created_at`, `updated_at`
 - **Path Parameters**: 
   - `id` (long): User ID
 - **Response (200 OK)** (UserResponse):
@@ -124,6 +168,11 @@ All error responses follow this format:
 - **Endpoint**: `/user/get-all-user`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve all users with pagination
+- **Database Storage**: 
+  - **Table**: `users`
+  - **Operation**: SELECT with pagination
+  - **Fields queried**: `id`, `username`, `email`, `full_name`, `avatar_url`, `is_active`, `created_at`, `updated_at`
+  - **Sorting**: ORDER BY `username` DESC
 - **Query Parameters**:
   - `record` (int): Number of records per page
   - `page` (int): Page number (0-based)
@@ -153,6 +202,11 @@ All error responses follow this format:
 - **Endpoint**: `/user/update/{id}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Update user profile information
+- **Database Storage**: 
+  - **Table**: `users`
+  - **Operation**: UPDATE
+  - **Fields affected**: `username`, `full_name`, `avatar_url` (if avatar provided), `updated_at`
+  - **File storage**: If avatar provided, file saved to file system
 - **Path Parameters**: 
   - `id` (long): User ID
 - **Request Body** (UserDTO - partial update):
@@ -182,6 +236,20 @@ All error responses follow this format:
 - **Endpoint**: `/user/delete/{id}`
 - **HTTP Method**: `DELETE`
 - **Function/Use Case**: Delete user account
+- **Database Storage**: 
+  - **Primary Table**: `users`
+    - **Operation**: DELETE (CASCADE)
+  - **Related tables affected** (via CASCADE DELETE or UPDATE):
+    - **`user_task_lists`**: All membership records for this user
+    - **`task_lists`**: Task lists owned by this user (if no other members, delete; if members exist, transfer ownership)
+    - **`tasks`**: 
+      - WHERE `created_by` = user_id: Set to NULL or delete
+      - WHERE `assigned_to` = user_id: Set to NULL
+    - **`task_reminders`**: All reminders created by this user
+    - **`attachments`**: All files uploaded by this user
+    - **`task_histories`**: All history records created by this user
+    - **`notifications`**: All notifications for this user
+  - **Complex logic**: Handle ownership transfer for task lists
 - **Path Parameters**: 
   - `id` (long): User ID
 - **Response (200 OK)**:
@@ -192,6 +260,53 @@ All error responses follow this format:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
   - `400 BAD_REQUEST` - DATABASE_EXCEPTION (10000): Cannot delete due to foreign key constraints
 
+### 1.8 Get Calendar Tasks
+- **Endpoint**: `/user/calendar-tasks/{userId}`
+- **HTTP Method**: `GET`
+- **Function/Use Case**: Get user's tasks for calendar view within date range
+- **Database Storage**: 
+  - **Tables**: `tasks`, `task_lists`, `task_reminders`, `user_task_lists`
+  - **Operation**: SELECT with JOINs and date filtering
+  - **Fields queried**: Tasks with due_date in range, related task list info, reminder info
+  - **Joins**: tasks → task_lists, tasks → task_reminders, user_task_lists (for access control)
+- **Path Parameters**: 
+  - `userId` (long): User ID
+- **Query Parameters**:
+  - `start-date` (LocalDate): Start date (format: YYYY-MM-DD)
+  - `end-date` (LocalDate): End date (format: YYYY-MM-DD)
+- **Response (200 OK)** (CalendarResponse):
+```json
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Complete project documentation",
+      "description": "Write comprehensive API documentation",
+      "dueDate": "2025-01-15T14:30:00",
+      "status": "PENDING",
+      "priority": "HIGH",
+      "taskList": {
+        "id": 1,
+        "name": "Work Tasks"
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "title": "Project Review Meeting",
+      "startTime": "2025-01-15T10:00:00",
+      "endTime": "2025-01-15T11:00:00",
+      "type": "REMINDER"
+    }
+  ]
+}
+```
+- **Exceptions**:
+  - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
+  - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid date parameters
+  - `500 INTERNAL_SERVER_ERROR` - DATABASE_EXCEPTION (10000): Database error
+
 ---
 
 ## 2. Task Management APIs
@@ -200,6 +315,12 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/create`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: Create a new task (without file attachments)
+- **Database Storage**: 
+  - **Table**: `tasks`
+  - **Operation**: INSERT
+  - **Fields affected**: `title`, `description`, `priority` (enum: LOW/MEDIUM/HIGH/URGENT), `due_date`, `task_list_id`, `created_by`, `assigned_to`, `is_completed` (default: false), `created_at`, `updated_at`
+  - **Auto-generated**: `id`, `created_at`, `updated_at`
+  - **Validation**: task_list_id must exist and user must have access to it
 - **Path Parameters**: 
   - `userId` (long): User ID
 - **Request Body** (TaskDTO):
@@ -242,6 +363,12 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/create/task/{taskId}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Upload file attachments to an existing task
+- **Database Storage**: 
+  - **Table**: `attachments`
+  - **Operation**: INSERT (multiple records)
+  - **Fields affected**: `task_id`, `file_name`, `file_path`, `file_size`, `file_type`, `attachment_type` (FILE), `uploaded_by`, `uploaded_at`
+  - **File storage**: Files saved to file system, metadata stored in database
+  - **Auto-generated**: `id`, `uploaded_at`
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
@@ -271,6 +398,11 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/{taskId}`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve detailed task information
+- **Database Storage**: 
+  - **Tables**: `tasks`, `task_lists`, `users` (for created_by, assigned_to), `attachments`
+  - **Operation**: SELECT with JOINs
+  - **Fields queried**: All task fields + related task list info + user info + attachments
+  - **Access control**: User must have access to the task list
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
@@ -299,6 +431,12 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/task-list/{taskListId}`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve all tasks within a specific task list
+- **Database Storage**: 
+  - **Tables**: `tasks`, `task_lists`, `user_task_lists` (for access control)
+  - **Operation**: SELECT with JOINs and pagination
+  - **Fields queried**: All task fields + task list validation
+  - **Sorting**: ORDER BY `created_at` DESC
+  - **Access control**: Verify user has access to task list via user_task_lists
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskListId` (long): Task List ID
@@ -338,6 +476,12 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve all tasks assigned to or created by a user
+- **Database Storage**: 
+  - **Tables**: `tasks`, `task_lists`, `user_task_lists`
+  - **Operation**: SELECT with JOINs and pagination
+  - **Fields queried**: All task fields from accessible task lists
+  - **Sorting**: ORDER BY `created_at` DESC
+  - **Access control**: Only tasks from task lists user has access to
 - **Path Parameters**: 
   - `userId` (long): User ID
 - **Query Parameters**:
@@ -375,6 +519,11 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/update/{id}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Update task information
+- **Database Storage**: 
+  - **Table**: `tasks`
+  - **Operation**: UPDATE
+  - **Fields affected**: `title`, `description`, `priority`, `due_date`, `assigned_to`, `updated_at`
+  - **Access control**: User must have access to task's task list
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
@@ -414,6 +563,11 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/delete/{id}`
 - **HTTP Method**: `DELETE`
 - **Function/Use Case**: Delete a task
+- **Database Storage**: 
+  - **Table**: `tasks` (primary)
+  - **Operation**: DELETE CASCADE
+  - **Related tables affected**: `task_reminders`, `task_recurrences`, `attachments`, `task_histories`, `notifications` (all related to this task)
+  - **Access control**: User must have access to task's task list
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
@@ -429,6 +583,11 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/complete/{id}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Mark a task as completed
+- **Database Storage**: 
+  - **Table**: `tasks`
+  - **Operation**: UPDATE
+  - **Fields affected**: `is_completed` (set to true), `completed_at` (set to current timestamp), `updated_at`
+  - **Access control**: User must have access to task's task list
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
@@ -458,6 +617,11 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/assign/{id}/assign-to/{assignedToUserId}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Assign a task to another user
+- **Database Storage**: 
+  - **Table**: `tasks`
+  - **Operation**: UPDATE
+  - **Fields affected**: `assigned_to` (set to assignedToUserId), `updated_at`
+  - **Validation**: assignedToUserId must have access to the task's task list
 - **Path Parameters**: 
   - `userId` (long): User ID (assigner)
   - `id` (long): Task ID
@@ -488,6 +652,11 @@ All error responses follow this format:
 - **Endpoint**: `/task/user/{userId}/undo_complete/{taskId}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Revert a completed task back to pending status
+- **Database Storage**: 
+  - **Table**: `tasks`
+  - **Operation**: UPDATE
+  - **Fields affected**: `is_completed` (set to false), `completed_at` (set to NULL), `updated_at`
+  - **Access control**: User must have access to task's task list
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
@@ -521,6 +690,15 @@ All error responses follow this format:
 - **Endpoint**: `/task-list/create/{id}`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: Create a new task list
+- **Database Storage**: 
+  - **Primary Table**: `task_lists`
+    - **Operation**: INSERT
+    - **Fields affected**: `name`, `description`, `color`, `owner_id`, `is_shared` (default: false), `created_at`, `updated_at`
+    - **Auto-generated**: `id`, `created_at`, `updated_at`
+  - **Secondary Table**: `user_task_lists`
+    - **Operation**: INSERT
+    - **Fields affected**: `user_id` (= owner_id), `task_list_id` (= new task list id), `role` (= 'HOST'), `joined_at`
+    - **Purpose**: Automatically add owner as HOST member
 - **Path Parameters**: 
   - `id` (long): User ID
 - **Request Body** (TaskListDTO):
@@ -554,6 +732,11 @@ All error responses follow this format:
 - **Endpoint**: `/task-list/{id}`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve task list information by ID
+- **Database Storage**: 
+  - **Tables**: `task_lists`, `users` (owner), `user_task_lists` (members)
+  - **Operation**: SELECT with JOINs
+  - **Fields queried**: All task list fields + owner info + member list
+  - **Access control**: User must be member of the task list
 - **Path Parameters**: 
   - `id` (long): Task List ID
 - **Response (200 OK)** (TaskListResponse):
@@ -645,6 +828,18 @@ All error responses follow this format:
 - **Endpoint**: `/task-list/delete/{id}/user/{userId}`
 - **HTTP Method**: `DELETE`
 - **Function/Use Case**: Delete a task list and all its tasks
+- **Database Storage**: 
+  - **Primary Table**: `task_lists`
+    - **Operation**: DELETE (CASCADE)
+  - **Related tables affected** (via CASCADE DELETE):
+    - **`user_task_lists`**: All membership records for this task list
+    - **`tasks`**: All tasks in this task list
+    - **`task_reminders`**: All reminders for tasks in this task list
+    - **`task_recurrences`**: All recurrences for tasks in this task list
+    - **`attachments`**: All attachments for tasks in this task list
+    - **`task_histories`**: All history records for tasks in this task list
+    - **`notifications`**: All notifications for tasks in this task list
+  - **Access control**: Only task list owner (HOST) can delete
 - **Path Parameters**: 
   - `id` (long): Task List ID
   - `userId` (long): User ID
@@ -660,6 +855,11 @@ All error responses follow this format:
 - **Endpoint**: `/task-list/share/{id}/user/{userId}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Generate a share code for the task list
+- **Database Storage**: 
+  - **Table**: `task_lists`
+  - **Operation**: UPDATE
+  - **Fields affected**: `is_shared` (set to true), `share_code` (generate unique code), `updated_at`
+  - **Access control**: Only task list owner can share
 - **Path Parameters**: 
   - `id` (long): Task List ID
   - `userId` (long): User ID
@@ -685,6 +885,15 @@ All error responses follow this format:
 - **Endpoint**: `/task-list/join/{shareCode}/user/{userId}`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: Join a shared task list using share code
+- **Database Storage**: 
+  - **Query Table**: `task_lists`
+    - **Operation**: SELECT
+    - **Purpose**: Validate `share_code` exists and `is_shared` = true
+    - **Fields queried**: `id`, `is_shared`, `share_code`
+  - **Insert Table**: `user_task_lists`
+    - **Operation**: INSERT
+    - **Fields affected**: `user_id`, `task_list_id` (from found task list), `role` (= 'MEMBER'), `joined_at`
+    - **Validation**: Check user is not already a member
 - **Path Parameters**: 
   - `shareCode` (string): Share Code
   - `userId` (long): User ID
@@ -708,6 +917,69 @@ All error responses follow this format:
   - `403 FORBIDDEN` - TASKLIST_NOT_SHARED (2005): Task list is not shared
   - `400 BAD_REQUEST` - TASKLIST_CANNOT_JOIN (2006): Cannot join task list
 
+### 3.8 Leave Task List
+- **Endpoint**: `/task-list/user/{userId}/leave/taskList/{taskListId}`
+- **HTTP Method**: `PUT`
+- **Function/Use Case**: User leaves a task list
+- **Database Storage**: 
+  - **Primary Table**: `user_task_lists`
+    - **Operation**: DELETE
+    - **Condition**: WHERE `user_id` = userId AND `task_list_id` = taskListId
+  - **Conditional Operations**: If leaving user is HOST:
+    - **Query Table**: `user_task_lists` 
+      - **Operation**: SELECT (find next oldest member by `joined_at`)
+      - **Purpose**: Find new HOST
+    - **Update Table**: `user_task_lists` (new host record)
+      - **Operation**: UPDATE
+      - **Fields affected**: `role` (set to 'HOST')
+    - **Update Table**: `task_lists`
+      - **Operation**: UPDATE  
+      - **Fields affected**: `owner_id` (set to new host's user_id)
+    - **Alternative**: If no other members exist, DELETE the entire task list
+- **Path Parameters**: 
+  - `userId` (long): User ID
+  - `taskListId` (long): Task List ID
+- **Response (200 OK)**:
+```json
+"Delete successfully" // or "Authority role HOST to new User" if HOST transfer occurred
+```
+- **Exceptions**:
+  - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: User is not a member of this task list
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
+
+### 3.9 Get Members in Task List
+- **Endpoint**: `/task-list/get-member/taskList/{id}`
+- **HTTP Method**: `GET`
+- **Function/Use Case**: Get all members of a task list
+- **Database Storage**: 
+  - **Tables**: `user_task_lists`, `users`
+  - **Operation**: SELECT with JOIN
+  - **Fields queried**: User info + role + joined_at for all task list members
+  - **Join**: user_task_lists.user_id = users.id WHERE task_list_id = id
+- **Path Parameters**: 
+  - `id` (long): Task List ID
+- **Response (200 OK)**:
+```json
+[
+  {
+    "userId": 1,
+    "username": "john_doe",
+    "fullName": "John Doe",
+    "role": "HOST",
+    "joinedAt": "2025-08-04T10:30:00"
+  },
+  {
+    "userId": 2,
+    "username": "jane_smith", 
+    "fullName": "Jane Smith",
+    "role": "MEMBER",
+    "joinedAt": "2025-08-05T14:20:00"
+  }
+]
+```
+- **Exceptions**:
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
+
 ---
 
 ## 4. Task Reminder APIs
@@ -716,6 +988,11 @@ All error responses follow this format:
 - **Endpoint**: `/reminder/user/{userId}/{reminderId}`
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve reminder information by ID
+- **Database Storage**: 
+  - **Tables**: `task_reminders`, `tasks`, `task_lists`, `user_task_lists`
+  - **Operation**: SELECT with JOINs
+  - **Fields queried**: All reminder fields + task info
+  - **Access control**: User must have access to the related task list
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `reminderId` (long): Reminder ID
@@ -891,6 +1168,16 @@ All error responses follow this format:
 - **Endpoint**: `/reminder/system/send-due-reminders`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: System endpoint to send all due reminders (scheduled task)
+- **Database Storage**: 
+  - **Query Table**: `task_reminders`
+    - **Operation**: SELECT
+    - **Condition**: WHERE `remind_at` <= NOW() AND `is_sent` = false
+    - **Purpose**: Find all unsent reminders that are due
+  - **Update Table**: `task_reminders`
+    - **Operation**: UPDATE (for each processed reminder)
+    - **Fields affected**: `is_sent` (set to true), `sent_at` (set to current timestamp)
+    - **Condition**: WHERE `id` IN (processed reminder IDs)
+  - **External Action**: Send actual notifications (email/push/SMS) based on `reminder_type`
 - **Response (200 OK)**:
 ```json
 "Sent {count} reminders"
@@ -906,6 +1193,11 @@ All error responses follow this format:
 - **Endpoint**: `/task_recurrence/task/{taskId}`
 - **HTTP Method**: `POST`
 - **Function/Use Case**: Create a recurring pattern for a task
+- **Database Storage**: 
+  - **Table**: `task_recurrences`
+  - **Operation**: INSERT
+  - **Fields affected**: `task_id`, `recurrence_type`, `recurrence_interval`, `recurrence_end_date`, `next_due_date`, `is_active` (default: true), `created_at`, `updated_at`
+  - **Auto-generated**: `id`, `created_at`, `updated_at`, `next_due_date` (calculated)
 - **Path Parameters**: 
   - `taskId` (long): Task ID
 - **Request Body** (TaskRecurrenceDTO):
@@ -1011,6 +1303,42 @@ All error responses follow this format:
 ---
 
 ## 6. Common Error Codes Reference
+
+### Database Storage Notes for Frontend Developers:
+
+**Understanding Database Operations:**
+- **INSERT**: Creates new records (POST operations)
+- **SELECT**: Retrieves data (GET operations) 
+- **UPDATE**: Modifies existing records (PUT operations)
+- **DELETE**: Removes records (DELETE operations)
+
+**Multi-Table Operations:**
+- **PRIMARY TABLE**: The main table being affected by the operation
+- **SECONDARY TABLE**: Additional tables that need INSERT/UPDATE in the same transaction
+- **QUERY TABLE**: Tables used for validation or data lookup
+- **RELATED TABLES AFFECTED**: Tables modified via CASCADE or business logic
+
+**Key Patterns:**
+1. **Access Control**: Most operations verify user has access to resources through `user_task_lists` table
+2. **Timestamps**: `created_at` and `updated_at` are automatically managed
+3. **Cascading Operations**: 
+   - Some deletes trigger cascading deletes across related tables
+   - Some operations require complex business logic (like ownership transfer)
+4. **File Storage**: File uploads save to filesystem, store metadata in `attachments` table
+5. **Relationships**: Data is connected through foreign keys (task_list_id, user_id, etc.)
+6. **Transactional Operations**: Multi-table operations are wrapped in database transactions
+
+**Complex Operations Examples:**
+- **Create Task List**: INSERT into `task_lists` + INSERT into `user_task_lists` (owner as HOST)
+- **Join Task List**: SELECT from `task_lists` (validate) + INSERT into `user_task_lists`
+- **Leave Task List**: DELETE from `user_task_lists` + possible HOST role transfer + possible task list deletion
+- **Delete User**: CASCADE deletes/updates across 7+ tables with ownership transfers
+
+**Performance Considerations:**
+- GET operations use JOINs to reduce multiple queries
+- Pagination is used for large result sets
+- Indexes exist on frequently queried fields (user_id, task_list_id)
+- Complex multi-table operations use database transactions for consistency
 
 ### User Related Errors (1000-1999)
 - `1000` - USER_ERROR: General user error

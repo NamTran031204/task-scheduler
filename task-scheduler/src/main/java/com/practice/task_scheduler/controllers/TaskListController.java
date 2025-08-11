@@ -14,7 +14,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/v1/task-list")
+@RequestMapping("${api.prefix}/task-list")
 @RequiredArgsConstructor
 @Validated
 public class TaskListController {
@@ -89,5 +89,12 @@ public class TaskListController {
             @PathVariable("taskListId") long taskListId
     ){
         return ResponseEntity.ok(taskListService.userLeaveTaskList(userId, taskListId));
+    }
+
+    @GetMapping("/get-member/taskList/{id}")
+    public ResponseEntity<?> getMemberInTaskList(
+            @PathVariable("id") long id
+    ){
+        return ResponseEntity.ok(taskListService.getAllMemberInTaskList(id));
     }
 }
