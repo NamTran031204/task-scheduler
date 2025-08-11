@@ -163,6 +163,9 @@ public class TaskRecurrenceServiceImpl implements TaskRecurrenceService {
     @Override
     @Transactional
     public void deleteRecurrence(long id) {
+        if (!taskRecurrenceRepository.existsById(id)) {
+            throw new RecurrenceException(ErrorCode.RECURRENCE_NOT_FOUND);
+        }
         taskRecurrenceRepository.deleteById(id);
     }
 

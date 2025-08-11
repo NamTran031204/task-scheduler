@@ -1,6 +1,7 @@
 package com.practice.task_scheduler.services;
 
 import com.practice.task_scheduler.entities.dtos.TaskListDTO;
+import com.practice.task_scheduler.entities.models.UserTaskList;
 import com.practice.task_scheduler.entities.responses.TaskListResponse;
 import com.practice.task_scheduler.entities.responses.UserResponse;
 import com.practice.task_scheduler.entities.responses.UserTaskListResponse;
@@ -17,7 +18,7 @@ public interface TaskListService {
     public void deleteTaskList(long taskListId, long userId);
     public TaskListResponse shareTaskList(long taskListId, long userId);
     public TaskListResponse joinTaskListByShareCode(String shareCode, long userId);
-    public List<UserResponse> getAllUserByTaskList(long taskListId);
     public String userLeaveTaskList(long userId, long taskListId);
     public UserTaskListResponse getAllMemberInTaskList(long taskListId);
+    public String authorityMember(long taskListId, long userId, long assignedId, UserTaskList.Role role);
 }

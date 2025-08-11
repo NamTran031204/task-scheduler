@@ -1,6 +1,7 @@
 package com.practice.task_scheduler.controllers;
 
 import com.practice.task_scheduler.entities.dtos.TaskListDTO;
+import com.practice.task_scheduler.entities.models.UserTaskList;
 import com.practice.task_scheduler.entities.responses.TaskListResponse;
 import com.practice.task_scheduler.services.TaskListService;
 import jakarta.validation.Valid;
@@ -96,5 +97,15 @@ public class TaskListController {
             @PathVariable("id") long id
     ){
         return ResponseEntity.ok(taskListService.getAllMemberInTaskList(id));
+    }
+
+    @PutMapping("/authority/user/{assignedUserId}/inTaskList/{taskListId}/byUser/{userId}/role")
+    public ResponseEntity<?> authorityUser(
+            @PathVariable("taskListId") long taskListId,
+            @PathVariable("userId") long userId,
+            @PathVariable("assignedUserId") long assignedId,
+            @RequestParam("role") UserTaskList.Role role
+    ){
+        return ResponseEntity.ok(taskListService.authorityMember(taskListId,userId,assignedId, role));
     }
 }

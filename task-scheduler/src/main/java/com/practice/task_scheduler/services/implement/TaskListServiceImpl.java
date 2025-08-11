@@ -178,11 +178,6 @@ public class TaskListServiceImpl implements TaskListService {
     }
 
     @Override
-    public List<UserResponse> getAllUserByTaskList(long taskListId) {
-        return List.of();
-    }
-
-    @Override
     @Transactional
     public String userLeaveTaskList(long userId, long taskListId) {
         UserTaskList userTaskList = userTaskListRepository.findByUserIdAndTaskListId(userId, taskListId)
@@ -235,6 +230,23 @@ public class TaskListServiceImpl implements TaskListService {
         return UserTaskListResponse.builder()
                 .userByRoleAndJoinedAt(userByRoleAndJoinedAt)
                 .build();
+    }
+
+    @Override
+    public String authorityMember(long taskListId, long userId, long assignedId, UserTaskList.Role role) {
+        UserTaskList userTaskList =  userTaskListRepository.findByUserIdAndTaskListId(userId, taskListId)
+                .orElseThrow(() -> new UserRequestException(ErrorCode.USERTASKLIST_NOT_FOUND));
+        if (userTaskList.getRole() == UserTaskList.Role.MEMBER){
+            throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED);
+        }
+        userTaskList = userTaskListRepository.findByUserIdAndTaskListId(assignedId, taskListId)
+                .orElseThrow(() -> new TaskListException(ErrorCode.USERTASKLIST_NOT_FOUND));
+        if (userTaskList.getRole().equals(role)){
+            return "Authority Done!";
+        }
+        userTaskList.setRole(Objects.equals(role, UserTaskList.Role.HOST) ? UserTaskList.Role.HOST : UserTaskList.Role.MEMBER);
+        userTaskListRepository.save(userTaskList);
+        return "Authority Done!";
     }
 
 

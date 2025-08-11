@@ -26,9 +26,9 @@ http://localhost:8080/api/v1
 - Tasks can have multiple attachments (1:N)
 
 ### Access Control:
-- Users can only access task lists they are members of
-- Task operations require membership in the containing task list
-- Only task list owners can manage sharing and member permissions
+- Người dùng chỉ có thể truy cập task lists mà họ là thành viên
+- Các thao tác trên task yêu cầu quyền thành viên trong task list chứa task đó
+- Chỉ chủ sở hữu task list mới có thể quản lý chia sẻ và quyền thành viên
 
 ## Error Response Structure
 All error responses follow this format:
@@ -49,12 +49,13 @@ All error responses follow this format:
 ### 1.1 Register User
 - **Endpoint**: `/user/register`
 - **HTTP Method**: `POST`
-- **Function/Use Case**: Register a new user account
+- **Function/Use Case**: Tạo tài khoản
 - **Database Storage**: 
   - **Primary Table**: `users`
     - **Operation**: INSERT
-    - **Fields affected**: `username`, `email`, `password` (encrypted), `full_name`, `is_active` (default: true), `created_at`, `updated_at`
-    - **Auto-generated**: `id`, `created_at`, `updated_at`
+    - **Fields affected**: `username`, `email`, `password`, `full_name`, `is_active` (default: true), `created_at`, `updated_at`
+    - **Notes**: `created_at` và `updated_at` được set từ input nếu có; ngược lại mặc định là thời gian hiện tại.
+    - **Auto-generated**: `id`
 - **Request Body** (UserDTO):
 ```json
 {
@@ -77,18 +78,19 @@ All error responses follow this format:
 ```
 - **Exceptions**:
   - `400 BAD_REQUEST` - USER_EXISTED (1001): User already exists
+  - `400 BAD_REQUEST` - USER_PASSWORD_FOUND (1004): Password already exists in system
   - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid input data
   - `400 BAD_REQUEST` - HTTP_MESSAGE_NOT_READABLE (12001): Malformed request body
 
 ### 1.2 User Login
 - **Endpoint**: `/user/login`
 - **HTTP Method**: `POST`
-- **Function/Use Case**: Authenticate user login
+- **Function/Use Case**: Đăng nhập
 - **Database Storage**: 
   - **Table**: `users`
   - **Operation**: SELECT
   - **Fields queried**: `id`, `username`, `email`, `password`, `full_name`, `is_active`
-  - **Authentication**: Password comparison with stored encrypted password
+  - **Authentication**: So sánh password với encrypted password đã lưu
 - **Request Body** (UserLoginDTO):
 ```json
 {
@@ -96,15 +98,9 @@ All error responses follow this format:
   "password": "string"        // required, cannot be blank
 }
 ```
-- **Response (200 OK)** (UserResponse + token):
+- **Response (200 OK)**:
 ```json
-{
-  "id": 1,
-  "username": "john_doe",
-  "email": "john@example.com",
-  "fullName": "John Doe",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+"login success"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
@@ -113,26 +109,19 @@ All error responses follow this format:
 
 ### 1.3 Update User Avatar
 - **Endpoint**: `/user/update_avatar/{id}`
-- **HTTP Method**: `PUT`
-- **Function/Use Case**: Update user profile avatar
+- **HTTP Method**: `POST`
+- **Function/Use Case**: Upload ảnh đại diện của người dùng, trong DB sẽ lưu url dẫn đến ảnh của người dùng
 - **Database Storage**: 
   - **Table**: `users`
   - **Operation**: UPDATE
   - **Fields affected**: `avatar_url`, `updated_at`
-  - **File storage**: Avatar file saved to file system, URL stored in database
+  - **File storage**: File avatar được lưu vào file system, URL được lưu trong database
 - **Path Parameters**: 
   - `id` (long): User ID
-- **Request Body**: `MultipartFile` (form-data with key "avatar")
-- **Response (200 OK)** (UserResponse):
+- **Request Body**: `MultipartFile` (form-data with key "file")
+- **Response (200 OK)**:
 ```json
-{
-  "id": 1,
-  "username": "john_doe",
-  "email": "john@example.com",
-  "fullName": "John Doe",
-  "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T11:15:00"
-}
+"Update User Avatar Successfully"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
@@ -143,7 +132,7 @@ All error responses follow this format:
 ### 1.4 Get User by ID
 - **Endpoint**: `/user/{id}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve user information by ID
+- **Function/Use Case**: Lấy thông tin user bằng userId
 - **Database Storage**: 
   - **Table**: `users`
   - **Operation**: SELECT
@@ -167,7 +156,7 @@ All error responses follow this format:
 ### 1.5 Get All Users (Paginated)
 - **Endpoint**: `/user/get-all-user`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve all users with pagination
+- **Function/Use Case**: Lấy ra tất cả users (tính năng này chỉ dùng cho ADMIN hệ thống)
 - **Database Storage**: 
   - **Table**: `users`
   - **Operation**: SELECT with pagination
@@ -176,23 +165,21 @@ All error responses follow this format:
 - **Query Parameters**:
   - `record` (int): Number of records per page
   - `page` (int): Page number (0-based)
-- **Response (200 OK)** (Page<UserResponse>):
+- **Response (200 OK)** (UserListResponse):
 ```json
 {
-  "content": [
+  "userResponses": [
     {
       "id": 1,
       "username": "john_doe",
       "email": "john@example.com",
       "fullName": "John Doe",
+      "avatarUrl": null,
       "createdAt": "2025-08-04T10:30:00",
       "updatedAt": "2025-08-04T10:30:00"
     }
   ],
-  "totalElements": 50,
-  "totalPages": 5,
-  "size": 10,
-  "number": 0
+  "totalPage": 5
 }
 ```
 - **Exceptions**:
@@ -201,32 +188,22 @@ All error responses follow this format:
 ### 1.6 Update User
 - **Endpoint**: `/user/update/{id}`
 - **HTTP Method**: `PUT`
-- **Function/Use Case**: Update user profile information
+- **Function/Use Case**: Chỉnh sửa thông tin của user, bao gồm các usecase: chỉnh sửa thông tin (username or fullname), chỉnh sửa avatar (upload avatar mới), hoặc tổng hợp cả 2 usecase trên (chỉnh sửa thông tin user)
+- **Lời khuyên từ backend**: chỗ này làm một cái form như kiểu Linkedin khi cập nhật profile.
 - **Database Storage**: 
   - **Table**: `users`
   - **Operation**: UPDATE
-  - **Fields affected**: `username`, `full_name`, `avatar_url` (if avatar provided), `updated_at`
-  - **File storage**: If avatar provided, file saved to file system
+  - **Fields affected**: `username`, `full_name`, `updated_at`
+  - **Notes**: Nếu file `avatar` được cung cấp, nó sẽ được validate và file avatar cũ sẽ bị xóa;
 - **Path Parameters**: 
   - `id` (long): User ID
-- **Request Body** (UserDTO - partial update):
+- **Request Input**: form-data body (key - type)
+  + key: username - type: text,        
+  + key: fullname - type: text,
+  + key: avatar - type: file,
+- **Response (200 OK)**:
 ```json
-{
-  "username": "string",        // optional
-  "email": "string",          // optional, must be valid email format if provided
-  "fullname": "string"        // optional
-}
-```
-- **Response (200 OK)** (UserResponse):
-```json
-{
-  "id": 1,
-  "username": "john_doe_updated",
-  "email": "john.updated@example.com",
-  "fullName": "John Doe Updated",
-  "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T12:15:00"
-}
+"update complete"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
@@ -235,26 +212,26 @@ All error responses follow this format:
 ### 1.7 Delete User
 - **Endpoint**: `/user/delete/{id}`
 - **HTTP Method**: `DELETE`
-- **Function/Use Case**: Delete user account
+- **Function/Use Case**: Xóa tài khoản user
 - **Database Storage**: 
   - **Primary Table**: `users`
     - **Operation**: DELETE (CASCADE)
   - **Related tables affected** (via CASCADE DELETE or UPDATE):
-    - **`user_task_lists`**: All membership records for this user
-    - **`task_lists`**: Task lists owned by this user (if no other members, delete; if members exist, transfer ownership)
+    - **`user_task_lists`**: Tất cả các record thành viên của user này
+    - **`task_lists`**: Task lists thuộc sở hữu của user này (nếu không có thành viên khác thì xóa; nếu có thành viên thì chuyển quyền sở hữu)
     - **`tasks`**: 
-      - WHERE `created_by` = user_id: Set to NULL or delete
-      - WHERE `assigned_to` = user_id: Set to NULL
-    - **`task_reminders`**: All reminders created by this user
-    - **`attachments`**: All files uploaded by this user
-    - **`task_histories`**: All history records created by this user
-    - **`notifications`**: All notifications for this user
-  - **Complex logic**: Handle ownership transfer for task lists
+      - WHERE `created_by` = user_id: Set về NULL hoặc xóa
+      - WHERE `assigned_to` = user_id: Set về NULL
+    - **`task_reminders`**: Tất cả reminders được tạo bởi user này
+    - **`attachments`**: Tất cả files được upload bởi user này
+    - **`task_histories`**: Tất cả history records được tạo bởi user này
+    - **`notifications`**: Tất cả notifications cho user này
+  - **Complex logic**: Xử lý chuyển quyền sở hữu cho task lists
 - **Path Parameters**: 
   - `id` (long): User ID
 - **Response (200 OK)**:
 ```json
-"User deleted successfully"
+"Delete Complete"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
@@ -263,12 +240,12 @@ All error responses follow this format:
 ### 1.8 Get Calendar Tasks
 - **Endpoint**: `/user/calendar-tasks/{userId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Get user's tasks for calendar view within date range
+- **Function/Use Case**: Lấy danh sách task cho view Calendar theo khoảng ngày, nhóm theo từng ngày
 - **Database Storage**: 
-  - **Tables**: `tasks`, `task_lists`, `task_reminders`, `user_task_lists`
-  - **Operation**: SELECT with JOINs and date filtering
-  - **Fields queried**: Tasks with due_date in range, related task list info, reminder info
-  - **Joins**: tasks → task_lists, tasks → task_reminders, user_task_lists (for access control)
+  - **Tables**: `tasks`, `task_lists`, `user_task_lists`
+  - **Operation**: SELECT with JOINs và date filtering
+  - **Fields queried**: Các tasks có `due_date` nằm trong khoảng [startDate, endDate], bao gồm cả task list color/name để render calendar
+  - **Joins**: tasks → task_lists (listName/color), user_task_lists (cho access control)
 - **Path Parameters**: 
   - `userId` (long): User ID
 - **Query Parameters**:
@@ -277,29 +254,32 @@ All error responses follow this format:
 - **Response (200 OK)** (CalendarResponse):
 ```json
 {
-  "tasks": [
-    {
-      "id": 1,
-      "title": "Complete project documentation",
-      "description": "Write comprehensive API documentation",
-      "dueDate": "2025-01-15T14:30:00",
-      "status": "PENDING",
-      "priority": "HIGH",
-      "taskList": {
+  "tasksByDate": {
+    "2025-01-15": [
+      {
         "id": 1,
-        "name": "Work Tasks"
+        "title": "Complete project documentation",
+        "description": "Write comprehensive API documentation",
+        "dueDate": "2025-01-15T14:30:00",
+        "priority": "HIGH",
+        "isCompleted": false,
+        "color": "#4285F4",
+        "listName": "Work Tasks",
+        "recurringInstanceId": null,
+        "isRecurring": false
       }
-    }
-  ],
-  "events": [
-    {
-      "id": 1,
-      "title": "Project Review Meeting",
-      "startTime": "2025-01-15T10:00:00",
-      "endTime": "2025-01-15T11:00:00",
-      "type": "REMINDER"
-    }
-  ]
+    ],
+    "2025-01-16": []
+  },
+  "startDate": "2025-01-15",
+  "endDate": "2025-01-21",
+  "totalTasks": 1,
+  "taskCountsByPriority": {
+    "LOW": 0,
+    "MEDIUM": 0,
+    "HIGH": 1,
+    "URGENT": 0
+  }
 }
 ```
 - **Exceptions**:
@@ -314,13 +294,13 @@ All error responses follow this format:
 ### 2.1 Create Task
 - **Endpoint**: `/task/user/{userId}/create`
 - **HTTP Method**: `POST`
-- **Function/Use Case**: Create a new task (without file attachments)
+- **Function/Use Case**: Tạo một task mới (không bao gồm file attachments)
 - **Database Storage**: 
   - **Table**: `tasks`
   - **Operation**: INSERT
   - **Fields affected**: `title`, `description`, `priority` (enum: LOW/MEDIUM/HIGH/URGENT), `due_date`, `task_list_id`, `created_by`, `assigned_to`, `is_completed` (default: false), `created_at`, `updated_at`
   - **Auto-generated**: `id`, `created_at`, `updated_at`
-  - **Validation**: task_list_id must exist and user must have access to it
+  - **Validation**: task_list_id phải tồn tại và user phải có quyền truy cập
 - **Path Parameters**: 
   - `userId` (long): User ID
 - **Request Body** (TaskDTO):
@@ -362,34 +342,26 @@ All error responses follow this format:
 ### 2.2 Upload Task Attachments
 - **Endpoint**: `/task/user/{userId}/create/task/{taskId}`
 - **HTTP Method**: `PUT`
-- **Function/Use Case**: Upload file attachments to an existing task
+- **Function/Use Case**: Upload file attachments vào một task đã tồn tại
 - **Database Storage**: 
   - **Table**: `attachments`
   - **Operation**: INSERT (multiple records)
   - **Fields affected**: `task_id`, `file_name`, `file_path`, `file_size`, `file_type`, `attachment_type` (FILE), `uploaded_by`, `uploaded_at`
-  - **File storage**: Files saved to file system, metadata stored in database
+  - **File storage**: Files được lưu vào file system, metadata được lưu trong database
   - **Auto-generated**: `id`, `uploaded_at`
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
-- **Request Body**: `List<MultipartFile>` (form-data)
+- **Request Body**: `List<MultipartFile>` (form-data, key: "files")
 - **Response (200 OK)**:
 ```json
-{
-  "taskId": "long",
-  "uploadedFiles": [
-    {
-      "fileName": "string",
-      "fileUrl": "string",
-      "fileSize": "long",
-      "uploadedAt": "datetime"
-    }
-  ]
-}
+"upload files completed"
 ```
 - **Exceptions**:
+  - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
-  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
+  - `403 FORBIDDEN` - TASKLIST_ACCESS_DENIED (2003): User is not owner or member of the task list
   - `400 BAD_REQUEST` - FILE_TYPE_NOT_SUPPORTED (11004): Unsupported file type
   - `413 PROCESSING` - FILE_TOO_LARGE (11003): File size exceeds limit
   - `422 PROCESSING` - FILE_UPLOAD_FAILED (11005): Upload failed
@@ -397,12 +369,12 @@ All error responses follow this format:
 ### 2.3 Get Task by ID
 - **Endpoint**: `/task/user/{userId}/{taskId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve detailed task information
+- **Function/Use Case**: Lấy thông tin chi tiết của task
 - **Database Storage**: 
-  - **Tables**: `tasks`, `task_lists`, `users` (for created_by, assigned_to), `attachments`
-  - **Operation**: SELECT with JOINs
-  - **Fields queried**: All task fields + related task list info + user info + attachments
-  - **Access control**: User must have access to the task list
+  - **Tables**: `tasks`, `task_lists`
+  - **Operation**: SELECT with JOIN (task -> task_list)
+  - **Fields queried**: Chỉ các fields của Task (TaskResponse)
+  - **Access control**: User phải là owner hoặc member của task list chứa task này
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
@@ -425,18 +397,19 @@ All error responses follow this format:
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
   - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
 
 ### 2.4 Get Tasks by Task List ID
 - **Endpoint**: `/task/user/{userId}/task-list/{taskListId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve all tasks within a specific task list
+- **Function/Use Case**: Lấy tất cả tasks trong một task list cụ thể
 - **Database Storage**: 
-  - **Tables**: `tasks`, `task_lists`, `user_task_lists` (for access control)
-  - **Operation**: SELECT with JOINs and pagination
-  - **Fields queried**: All task fields + task list validation
+  - **Tables**: `tasks`, `task_lists`, `user_task_lists` (cho access control)
+  - **Operation**: SELECT with JOINs và pagination
+  - **Fields queried**: Tất cả task fields + task list validation
   - **Sorting**: ORDER BY `created_at` DESC
-  - **Access control**: Verify user has access to task list via user_task_lists
+  - **Access control**: Verify user có quyền truy cập task list thông qua user_task_lists
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskListId` (long): Task List ID
@@ -475,13 +448,12 @@ All error responses follow this format:
 ### 2.5 Get Tasks by User ID
 - **Endpoint**: `/task/user/{userId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve all tasks assigned to or created by a user
+- **Function/Use Case**: Retrieve all tasks created by a user
 - **Database Storage**: 
-  - **Tables**: `tasks`, `task_lists`, `user_task_lists`
-  - **Operation**: SELECT with JOINs and pagination
-  - **Fields queried**: All task fields from accessible task lists
+  - **Table**: `tasks`
+  - **Operation**: SELECT with pagination, WHERE `created_by` = userId
   - **Sorting**: ORDER BY `created_at` DESC
-  - **Access control**: Only tasks from task lists user has access to
+  - **Access control**: N/A (returns tasks created by the user)
 - **Path Parameters**: 
   - `userId` (long): User ID
 - **Query Parameters**:
@@ -514,16 +486,21 @@ All error responses follow this format:
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
+  - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
 
 ### 2.6 Update Task
 - **Endpoint**: `/task/user/{userId}/update/{id}`
 - **HTTP Method**: `PUT`
-- **Function/Use Case**: Update task information
+- **Function/Use Case**: Update thông tin task: có thể chia nhỏ thành các usecase:
+  + cập nhật title của task (nội dung task)
+  + cập nhật mô tả của task
+  + Cập nhật mức độ ưu tiên của task (cái này có thể làm màn hình riêng)
+  + Thêm hoặc cập nhật ngày đến hạn của task (vì task ban đầu được khởi tạo chưa chắc có ngày đến hạn)
 - **Database Storage**: 
   - **Table**: `tasks`
   - **Operation**: UPDATE
   - **Fields affected**: `title`, `description`, `priority`, `due_date`, `assigned_to`, `updated_at`
-  - **Access control**: User must have access to task's task list
+  - **Access control**: Only task creator or assigned user can update
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
@@ -557,6 +534,7 @@ All error responses follow this format:
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
   - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
   - `400 BAD_REQUEST` - TASK_INVALID_DUE_DATE (3004): Due date cannot be in the past
+  - `404 NOT_FOUND` - USER_NOT_FOUND (1002): Assigned user not found (when changing assignee)
   - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid input data
 
 ### 2.7 Delete Task
@@ -567,7 +545,7 @@ All error responses follow this format:
   - **Table**: `tasks` (primary)
   - **Operation**: DELETE CASCADE
   - **Related tables affected**: `task_reminders`, `task_recurrences`, `attachments`, `task_histories`, `notifications` (all related to this task)
-  - **Access control**: User must have access to task's task list
+  - **Access control**: Only task creator or task list HOST (owner) can delete
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
@@ -587,7 +565,7 @@ All error responses follow this format:
   - **Table**: `tasks`
   - **Operation**: UPDATE
   - **Fields affected**: `is_completed` (set to true), `completed_at` (set to current timestamp), `updated_at`
-  - **Access control**: User must have access to task's task list
+  - **Access control**: Only memeber user (HOST hoặc MEMBER) can complete the task
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
@@ -621,7 +599,7 @@ All error responses follow this format:
   - **Table**: `tasks`
   - **Operation**: UPDATE
   - **Fields affected**: `assigned_to` (set to assignedToUserId), `updated_at`
-  - **Validation**: assignedToUserId must have access to the task's task list
+  - **Validation**: For shared task lists, `assignedToUserId` must be the owner or a member of the task list (ý là task dành cho nhiều người)
 - **Path Parameters**: 
   - `userId` (long): User ID (assigner)
   - `id` (long): Task ID
@@ -645,8 +623,9 @@ All error responses follow this format:
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
-  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
-  - `400 BAD_REQUEST` - TASK_ASSIGNMENT_FAILED (3005): Cannot assign to non-member
+  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to assign
+  - `404 NOT_FOUND` - USER_NOT_FOUND (1002): Assigned user not found
+  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): Cannot assign to non-member (for shared lists)
 
 ### 2.10 Undo Task Completion
 - **Endpoint**: `/task/user/{userId}/undo_complete/{taskId}`
@@ -655,8 +634,8 @@ All error responses follow this format:
 - **Database Storage**: 
   - **Table**: `tasks`
   - **Operation**: UPDATE
-  - **Fields affected**: `is_completed` (set to false), `completed_at` (set to NULL), `updated_at`
-  - **Access control**: User must have access to task's task list
+  - **Fields affected**: `is_completed` (set to false), `completed_at` (set to current timestamp), `updated_at`
+  - **Access control**: Only task creator or assigned user can undo completion
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
@@ -693,8 +672,8 @@ All error responses follow this format:
 - **Database Storage**: 
   - **Primary Table**: `task_lists`
     - **Operation**: INSERT
-    - **Fields affected**: `name`, `description`, `color`, `owner_id`, `is_shared` (default: false), `created_at`, `updated_at`
-    - **Auto-generated**: `id`, `created_at`, `updated_at`
+  - **Fields affected**: `name`, `description`, `color` (default: "#3b82f6"), `owner_id`, `is_shared` (default: false)
+  - **Auto-generated**: `id`, `created_at`, `updated_at`
   - **Secondary Table**: `user_task_lists`
     - **Operation**: INSERT
     - **Fields affected**: `user_id` (= owner_id), `task_list_id` (= new task list id), `role` (= 'HOST'), `joined_at`
@@ -733,10 +712,9 @@ All error responses follow this format:
 - **HTTP Method**: `GET`
 - **Function/Use Case**: Retrieve task list information by ID
 - **Database Storage**: 
-  - **Tables**: `task_lists`, `users` (owner), `user_task_lists` (members)
-  - **Operation**: SELECT with JOINs
-  - **Fields queried**: All task list fields + owner info + member list
-  - **Access control**: User must be member of the task list
+  - **Table**: `task_lists`
+  - **Operation**: SELECT
+  - **Fields queried**: Task list fields only (TaskListResponse)
 - **Path Parameters**: 
   - `id` (long): Task List ID
 - **Response (200 OK)** (TaskListResponse):
@@ -759,7 +737,11 @@ All error responses follow this format:
 ### 3.3 Get All Task Lists by User ID
 - **Endpoint**: `/task-list/user/{userId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve all task lists owned by or shared with a user
+- **Function/Use Case**: Retrieve all task lists owned by a user
+- **Database Storage**: 
+  - **Table**: `task_lists`
+  - **Operation**: SELECT with pagination, WHERE `owner_id` = userId
+  - **Sorting**: ORDER BY `created_at` DESC
 - **Path Parameters**: 
   - `userId` (long): User ID
 - **Query Parameters**:
@@ -794,6 +776,7 @@ All error responses follow this format:
 - **Endpoint**: `/task-list/update/{id}/user/{userId}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Update task list information
+- **Access control**: Only task list owner can update
 - **Path Parameters**: 
   - `id` (long): Task List ID
   - `userId` (long): User ID
@@ -822,6 +805,7 @@ All error responses follow this format:
 - **Exceptions**:
   - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
   - `403 FORBIDDEN` - TASKLIST_ACCESS_DENIED (2003): Access denied
+  - `400 BAD_REQUEST` - TASKLIST_ALREADY_EXIST (2001): Duplicate name for same owner
   - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid input data
 
 ### 3.5 Delete Task List
@@ -832,14 +816,9 @@ All error responses follow this format:
   - **Primary Table**: `task_lists`
     - **Operation**: DELETE (CASCADE)
   - **Related tables affected** (via CASCADE DELETE):
-    - **`user_task_lists`**: All membership records for this task list
-    - **`tasks`**: All tasks in this task list
-    - **`task_reminders`**: All reminders for tasks in this task list
-    - **`task_recurrences`**: All recurrences for tasks in this task list
-    - **`attachments`**: All attachments for tasks in this task list
-    - **`task_histories`**: All history records for tasks in this task list
-    - **`notifications`**: All notifications for tasks in this task list
+    - `user_task_lists`, `tasks`, `task_reminders`, `task_recurrences`, `attachments`, `task_histories`, `notifications`
   - **Access control**: Only task list owner (HOST) can delete
+  - **Business rule in current implementation**: If list is shared and has members, deletion is blocked; remove members first.
 - **Path Parameters**: 
   - `id` (long): Task List ID
   - `userId` (long): User ID
@@ -850,6 +829,7 @@ All error responses follow this format:
 - **Exceptions**:
   - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
   - `403 FORBIDDEN` - TASKLIST_ACCESS_DENIED (2003): Access denied
+  - `400 BAD_REQUEST` - TASKLIST_EXCEPTION (2007): Cannot delete shared list with members
 
 ### 3.6 Share Task List
 - **Endpoint**: `/task-list/share/{id}/user/{userId}`
@@ -858,8 +838,8 @@ All error responses follow this format:
 - **Database Storage**: 
   - **Table**: `task_lists`
   - **Operation**: UPDATE
-  - **Fields affected**: `is_shared` (set to true), `share_code` (generate unique code), `updated_at`
-  - **Access control**: Only task list owner can share
+  - **Fields affected**: toggle `is_shared` (true/false), `share_code` (generate once if absent), `updated_at`
+  - **Access control**: Only task list owner can share/unshare
 - **Path Parameters**: 
   - `id` (long): Task List ID
   - `userId` (long): User ID
@@ -889,7 +869,7 @@ All error responses follow this format:
   - **Query Table**: `task_lists`
     - **Operation**: SELECT
     - **Purpose**: Validate `share_code` exists and `is_shared` = true
-    - **Fields queried**: `id`, `is_shared`, `share_code`
+  - **Fields queried**: `id`, `owner_id`, `is_shared`, `share_code`
   - **Insert Table**: `user_task_lists`
     - **Operation**: INSERT
     - **Fields affected**: `user_id`, `task_list_id` (from found task list), `role` (= 'MEMBER'), `joined_at`
@@ -941,7 +921,15 @@ All error responses follow this format:
   - `taskListId` (long): Task List ID
 - **Response (200 OK)**:
 ```json
-"Delete successfully" // or "Authority role HOST to new User" if HOST transfer occurred
+"Delete successfully"
+```
+or
+```json
+"Authority role HOST to new User"
+```
+or
+```json
+"Cannot find authority, so delete task list"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: User is not a member of this task list
@@ -958,28 +946,69 @@ All error responses follow this format:
   - **Join**: user_task_lists.user_id = users.id WHERE task_list_id = id
 - **Path Parameters**: 
   - `id` (long): Task List ID
-- **Response (200 OK)**:
+- **Response (200 OK)** (UserTaskListResponse):
 ```json
-[
-  {
-    "userId": 1,
-    "username": "john_doe",
-    "fullName": "John Doe",
-    "role": "HOST",
-    "joinedAt": "2025-08-04T10:30:00"
-  },
-  {
-    "userId": 2,
-    "username": "jane_smith", 
-    "fullName": "Jane Smith",
-    "role": "MEMBER",
-    "joinedAt": "2025-08-05T14:20:00"
+{
+  "userByRoleAndJoinedAt": {
+    "HOST": [
+      [ { "id": 1, 
+          "username": "john_doe", 
+          "email": "john@example.com", 
+          "fullName": "John Doe", 
+          "avatarUrl": null 
+        }, 
+        "2025-08-04T10:30:00" 
+      ]
+    ],
+    "MEMBER": [
+      [ { "id": 2, "username": "jane_smith", "email": "jane@example.com", "fullName": "Jane Smith", "avatarUrl": null }, "2025-08-05T14:20:00" ]
+    ]
   }
-]
+}
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
 
+## 3.10 Authority Member Role
+
+- **Endpoint**: `/task-list/authority/user/{assignedUserId}/inTaskList/{taskListId}/byUser/{userId}/role`
+- **HTTP Method**: `PUT`
+- **Function/Use Case**: Change role of a member in a task list (promote MEMBER to HOST or demote HOST to MEMBER)
+- **Database Storage**: 
+  - **Primary Table**: `user_task_lists`
+    - **Operation**: UPDATE
+    - **Fields affected**: `role` (set to new role value), `updated_at` (implicit)
+    - **Condition**: WHERE `user_id` = assignedUserId AND `task_list_id` = taskListId
+  - **Access control**: Only HOST can change member roles
+  - **Business logic**: 
+    - If promoting MEMBER to HOST, demote current HOST to MEMBER
+    - If demoting HOST to MEMBER, promote oldest MEMBER to HOST
+    - Cannot demote the only HOST without other members
+  - **Secondary Table**: `task_lists` (if ownership transfer occurs)
+    - **Operation**: UPDATE
+    - **Fields affected**: `owner_id` (set to new HOST's user_id)
+- **Path Parameters**: 
+  - `taskListId` (long): Task List ID
+  - `userId` (long): User ID (must be current HOST)
+  - `assignedUserId` (long): Target user ID whose role will be changed
+- **Query Parameters**:
+  - `role` (UserTaskList.Role): New role to assign, enum: "HOST", "MEMBER"
+- **Response (200 OK)**:
+```json
+"Authority Done!"
+```
+- **Exceptions**:
+  - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: Requesting user is not a member of this task list
+  - `403 FORBIDDEN` - TASKLIST_ACCESS_DENIED (2003): Only HOST can change member roles
+  - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: Target user is not a member of this task list
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
+  - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid role parameter
+
+**Notes**:
+- This operation may trigger ownership transfer if promoting a MEMBER to HOST
+- The endpoint follows role-based access control where only HOST users can modify member roles
+- If target user already has the requested role, the operation completes successfully without changes
+- Role changes affect task assignment permissions within the task list
 ---
 
 ## 4. Task Reminder APIs
@@ -1196,8 +1225,9 @@ All error responses follow this format:
 - **Database Storage**: 
   - **Table**: `task_recurrences`
   - **Operation**: INSERT
-  - **Fields affected**: `task_id`, `recurrence_type`, `recurrence_interval`, `recurrence_end_date`, `next_due_date`, `is_active` (default: true), `created_at`, `updated_at`
-  - **Auto-generated**: `id`, `created_at`, `updated_at`, `next_due_date` (calculated)
+  - **Fields affected**: `task_id`, `recurrence_type`, `recurrence_interval` (default: 1), `recurrence_end_date`, `next_due_date` (calculated), `is_active`, `created_at`, `updated_at`
+  - **Auto-generated**: `id`
+  - **Notes**: If `recurrence_interval` < 1, mark as inactive. `next_due_date` is computed from task's `due_date` if present; otherwise from current time.
 - **Path Parameters**: 
   - `taskId` (long): Task ID
 - **Request Body** (TaskRecurrenceDTO):
@@ -1205,8 +1235,7 @@ All error responses follow this format:
 {
   "recurrence_type": "string",      // required, enum: "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
   "recurrence_interval": 1,         // optional, default: 1 (repeat every N periods)
-  "recurrence_end_date": "2025-12-31",  // optional, date format (when recurrence should stop)
-  "is_active": true                 // optional, default: true
+  "recurrence_end_date": "2025-12-31"  // optional, YYYY-MM-DD
 }
 ```
 - **Response (200 OK)** (TaskRecurrenceResponse):
@@ -1226,7 +1255,6 @@ All error responses follow this format:
 - **Exceptions**:
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
   - `400 BAD_REQUEST` - RECURRENCE_ALREADY_EXIST (4000): Task recurrence already exists
-  - `400 BAD_REQUEST` - RECURRENCE_CANNOT_BE_BEFORE_NOW (4001): Recurrence cannot be before now
   - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid input data
 
 ### 5.2 Get Recurrence by Task ID
@@ -1250,13 +1278,16 @@ All error responses follow this format:
 }
 ```
 - **Exceptions**:
-  - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
   - `404 NOT_FOUND` - RECURRENCE_NOT_FOUND (4002): Recurrence not found
 
 ### 5.3 Update Recurrence
 - **Endpoint**: `/task_recurrence/update/{recurrenceId}`
 - **HTTP Method**: `PUT`
 - **Function/Use Case**: Update recurrence pattern
+ - **Database Storage**:
+   - **Table**: `task_recurrences`
+   - **Operation**: UPDATE by id (custom repository update)
+   - **Fields affected**: `recurrence_type`, `recurrence_interval`, `recurrence_end_date`, `is_active`, `updated_at`
 - **Path Parameters**: 
   - `recurrenceId` (long): Recurrence ID
 - **Request Body** (TaskRecurrenceDTO - partial update):
@@ -1284,7 +1315,6 @@ All error responses follow this format:
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - RECURRENCE_NOT_FOUND (4002): Recurrence not found
-  - `400 BAD_REQUEST` - RECURRENCE_CANNOT_BE_BEFORE_NOW (4001): Recurrence cannot be before now
   - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid input data
 
 ### 5.4 Delete Recurrence
