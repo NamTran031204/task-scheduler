@@ -108,4 +108,13 @@ public class TaskListController {
     ){
         return ResponseEntity.ok(taskListService.authorityMember(taskListId,userId,assignedId, role));
     }
+
+    @DeleteMapping("/delete/user/{targetUser}/inTaskList/{taskListId}/byUser/{executeUser}")
+    public ResponseEntity<?> deleteUserInTaskList(
+            @PathVariable("targetUser") long targetUser,
+            @PathVariable("taskListId") long taskListId,
+            @PathVariable("executeUser") long executeUser
+    ){
+        return ResponseEntity.ok(taskListService.deleteUserInTaskList(taskListId,executeUser, targetUser));
+    }
 }

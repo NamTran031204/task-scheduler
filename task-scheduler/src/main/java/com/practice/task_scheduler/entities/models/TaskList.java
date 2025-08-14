@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -58,11 +59,14 @@ public class TaskList{
     // Relationship
     @JoinColumn(name = "owner_id", nullable = false, insertable = false, updatable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private User ownerUser;
 
     @OneToMany(mappedBy = "taskList", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<UserTaskList> userTaskLists;
 
     @OneToMany(mappedBy = "taskList", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Task> tasks;
 }

@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,8 +13,8 @@ import java.util.List;
 @NoArgsConstructor
 @Table(name = "tasks")
 @Entity
-@ToString(exclude = {"taskList", "createdByUser", "assignedToUser", "taskRecurrences", "taskReminders", "attachments", "taskHistories", "notifications"})
-@EqualsAndHashCode(exclude = {"taskList", "createdByUser", "assignedToUser", "taskRecurrences", "taskReminders", "attachments", "taskHistories", "notifications", "createdAt", "updatedAt", "completedAt"})
+@ToString(exclude = {"taskList", "taskRecurrences", "taskReminders", "attachments", "taskHistories", "notifications", "userTaskAssignments"})
+@EqualsAndHashCode(exclude = {"taskList", "taskRecurrences", "taskReminders", "attachments", "taskHistories", "notifications", "userTaskAssignments", "createdAt", "updatedAt"})
 public class Task {
 
     @Id
@@ -35,17 +36,11 @@ public class Task {
     @Column(name = "due_date")
     private LocalDateTime dueDate;
 
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
-
     @Column(name = "task_list_id", nullable = false)
     private Long taskListId;
 
     @Column(name = "created_by")
     private Long createdBy;
-
-    @Column(name = "assigned_to")
-    private Long assignedTo;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -67,30 +62,37 @@ public class Task {
 
     @JoinColumn(name = "task_list_id", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private TaskList taskList;
 
     @JoinColumn(name = "created_by", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private User createdByUser;
 
-    @JoinColumn(name = "assigned_to", updatable = false, insertable = false)
-    @ManyToOne(fetch = FetchType.LAZY)
-    private User assignedToUser;
-
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<TaskRecurrence> taskRecurrences;
 
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<TaskReminder> taskReminders;
 
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Attachment> attachments;
 
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<TaskHistory> taskHistories;
 
     @OneToMany(mappedBy = "task", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Notification> notifications;
+
+    @OneToMany(mappedBy = "task", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
+    private List<UserTaskAssignment> userTaskAssignments;
 
     public enum Priority{
         LOW, MEDIUM, HIGH, URGENT

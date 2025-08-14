@@ -1,9 +1,14 @@
 package com.practice.task_scheduler.entities.responses;
 
 import com.practice.task_scheduler.entities.models.Task;
+import com.practice.task_scheduler.entities.models.UserTaskAssignment;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -17,14 +22,22 @@ public class TaskResponse {
     private Boolean isCompleted;
     private Task.Priority priority;
     private LocalDateTime dueDate;
-    private LocalDateTime completedAt;
     private Long taskListId;
     private Long createdBy;
-    private Long assignedTo;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static TaskResponse toTask(Task task) {
+    private Map<UserTaskAssignment.Status, List<TaskAssignmentResponse>> userTasksResponse;
+
+    public static TaskResponse toTask(Task task, List<UserTaskAssignment> assignments) {
+        Map<UserTaskAssignment.Status, List<TaskAssignmentResponse>> userTasks = new HashMap<>();
+        userTasks.put(UserTaskAssignment.Status.IN_PROGRESS, new ArrayList<>());
+        userTasks.put(UserTaskAssignment.Status.COMPLETED, new ArrayList<>());
+        assignments.forEach(assignment -> {
+            TaskAssignmentResponse response = TaskAssignmentResponse.fromUserTaskAssignment(assignment);
+            userTasks.get(assignment.getStatus()).add(response);
+        });
+
         return TaskResponse.builder()
                 .id(task.getId())
                 .title(task.getTitle())
@@ -32,12 +45,11 @@ public class TaskResponse {
                 .isCompleted(task.getIsCompleted())
                 .priority(task.getPriority())
                 .dueDate(task.getDueDate())
-                .completedAt(task.getCompletedAt())
                 .taskListId(task.getTaskListId())
                 .createdBy(task.getCreatedBy())
-                .assignedTo(task.getAssignedTo())
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
+                .userTasksResponse(userTasks)
                 .build();
     }
 }

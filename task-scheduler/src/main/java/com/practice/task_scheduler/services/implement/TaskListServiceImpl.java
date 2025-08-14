@@ -61,7 +61,6 @@ public class TaskListServiceImpl implements TaskListService {
                 .description(taskListDTO.getDescription())
                 .isShared(false)
                 .ownerId(userId)
-//                .ownerUser(user)
                 .color(taskListDTO.getColor() != null ? taskListDTO.getColor() : "#3b82f6")
                 .build();
 
@@ -71,6 +70,8 @@ public class TaskListServiceImpl implements TaskListService {
         taskList = taskListRepository.save(taskList);
 
         saveUserTaskList(userId, user, taskList.getId(), taskList, UserTaskList.Role.HOST);
+
+        // Notification
 
         return TaskListResponse.toTaskList(taskList);
     }
@@ -116,10 +117,13 @@ public class TaskListServiceImpl implements TaskListService {
         }
 
         TaskList updatedTaskList = taskListRepository.save(taskList);
+
+        //notification
         return TaskListResponse.toTaskList(updatedTaskList);
     }
 
     @Override
+    @Transactional
     public void deleteTaskList(long taskListId, long userId) {
         TaskList taskList = taskListRepository.findById(taskListId)
                 .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND, "TaskList not found"));
@@ -131,6 +135,8 @@ public class TaskListServiceImpl implements TaskListService {
         if (taskList.getIsShared() && taskList.getUserTaskLists() != null && !taskList.getUserTaskLists().isEmpty()) {
             throw new TaskListException(ErrorCode.TASKLIST_EXCEPTION, "Cannot delete shared task list with members. Remove all members first.");
         }
+
+        //notification
 
         taskListRepository.delete(taskList);
     }
@@ -149,11 +155,18 @@ public class TaskListServiceImpl implements TaskListService {
         }
 
         TaskList updatedTaskList = taskListRepository.save(taskList);
+
+        //notification
+
         return TaskListResponse.toTaskList(updatedTaskList);
     }
 
     @Override
+    @Transactional
     public TaskListResponse joinTaskListByShareCode(String shareCode, long userId) {
+
+        // can cau hinh multithred cho bon nay
+
         TaskList taskList = taskListRepository.findByShareCode(shareCode)
                 .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_INVALID_SHARECODE, "Invalid share code"));
 
@@ -249,13 +262,33 @@ public class TaskListServiceImpl implements TaskListService {
         return "Authority Done!";
     }
 
+    @Override
+    public String deleteUserInTaskList(long taskListId, long executeUser, long targetUser){
+        UserTaskList userTaskList =  userTaskListRepository.findByUserIdAndTaskListId(executeUser, taskListId)
+                .orElseThrow(() -> new UserRequestException(ErrorCode.USERTASKLIST_NOT_FOUND));
+        if (userTaskList.getRole() == UserTaskList.Role.MEMBER){
+            throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED);
+        }
+        int ok = 0;
+        if (userTaskList.getTaskList().getOwnerId().equals(executeUser)){
+            ok = 1;
+        }
+
+        userTaskList =  userTaskListRepository.findByUserIdAndTaskListId(targetUser, taskListId)
+                .orElseThrow(() -> new UserRequestException(ErrorCode.USERTASKLIST_NOT_FOUND));
+        if (userTaskList.getRole().equals(UserTaskList.Role.HOST) && ok != 1){
+            throw new TaskListException(ErrorCode.TASKLIST_ACCESS_DENIED, "You cannot delete owner user");
+        }
+
+        userTaskListRepository.delete(userTaskList);
+
+        return "Delete User Successfully";
+    }
 
     private void saveUserTaskList(long userId, User owner,  long taskListId, TaskList taskList, UserTaskList.Role role){
         UserTaskList userTaskList = UserTaskList.builder()
                 .userId(userId)
                 .taskListId(taskListId)
-//                .taskList(taskList)
-//                .owner(owner)
                 .role(role)
                 .build();
         userTaskListRepository.save(userTaskList);

@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -56,10 +57,12 @@ public class Attachment {
 
     @JoinColumn(name = "task_id", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Task task;
 
     @JoinColumn(name = "uploaded_by", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private User user;
 
 

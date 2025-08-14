@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface UserTaskListRepository extends JpaRepository<UserTaskList, Long> {
@@ -34,4 +35,7 @@ public interface UserTaskListRepository extends JpaRepository<UserTaskList, Long
             WHERE utl.task_list_id = :taskListId AND u.is_active = 1
             """ , nativeQuery = true)
     List<UserTaskListProjection> findMemberByTaskListId(@Param("taskListId") long taskListId);
+
+    @Query("SELECT utl.userId FROM UserTaskList utl WHERE utl.taskListId = :taskListId AND utl.userId IN :userIds")
+    Set<Long> findValidUsersByTaskListId(@Param("taskListId") Long taskListId, @Param("userIds") Set<Long> userIds);
 }

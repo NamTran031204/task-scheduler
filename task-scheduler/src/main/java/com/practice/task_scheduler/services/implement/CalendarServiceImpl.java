@@ -2,10 +2,12 @@ package com.practice.task_scheduler.services.implement;
 
 import com.practice.task_scheduler.entities.models.Task;
 import com.practice.task_scheduler.entities.models.TaskRecurrence;
+import com.practice.task_scheduler.entities.models.UserTaskAssignment;
 import com.practice.task_scheduler.entities.projections.CalendarTaskProjection;
 import com.practice.task_scheduler.entities.responses.CalendarResponse;
 import com.practice.task_scheduler.entities.responses.CalendarTaskResponse;
 import com.practice.task_scheduler.repositories.TaskRepository;
+import com.practice.task_scheduler.repositories.UserTaskAssignmentRepository;
 import com.practice.task_scheduler.services.CalendarService;
 import com.practice.task_scheduler.utils.RecurrenceIterator;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,14 +27,19 @@ public class CalendarServiceImpl implements CalendarService {
 
     private final TaskRepository taskRepository;
 
+    private final UserTaskAssignmentRepository userTaskAssignmentRepository;
+
     @Override
     public CalendarResponse getTasksForCalendar(Long userId, LocalDate startDate, LocalDate endDate) {
-        List<CalendarTaskProjection> singleTasksForCalendar = taskRepository.findSingleTasksForCalendar(
-                userId,
-                startDate.atStartOfDay(),
-                endDate.atTime(23,59,59));
 
-        List<Task> recurringTaskForCalendar = taskRepository.findRecurringTasksForUser(userId);
+        // cau hinh multithread
+        List<CalendarTaskProjection> singleTasksForCalendar = taskRepository
+                .findSingleTasksForCalendarWithAssignments(
+                        userId,
+                        startDate.atStartOfDay(),
+                        endDate.atTime(23,59,59));
+
+        List<Task> recurringTaskForCalendar = loadRecurringTasksWithFullData(userId);
 
         Map<String, List<CalendarTaskResponse>> tasksByDate = new ConcurrentHashMap<>();
 
@@ -56,6 +64,35 @@ public class CalendarServiceImpl implements CalendarService {
                 .build();
     }
 
+    private List<Task> loadRecurringTasksWithFullData(Long userId) {
+        List<Task> tasks = taskRepository.findRecurringTasksForUserBasic(userId);
+
+        if (tasks.isEmpty()) {
+            return tasks;
+        }
+
+        List<Long> taskIds = tasks.stream()
+                .map(Task::getId)
+                .collect(Collectors.toList());
+
+        List<TaskRecurrence> recurrences = taskRepository.findActiveRecurrencesByTaskIds(taskIds);
+
+        List<UserTaskAssignment> assignments = userTaskAssignmentRepository.findByTaskIdIn(taskIds);
+
+        Map<Long, List<TaskRecurrence>> recurrencesByTask = recurrences.stream()
+                .collect(Collectors.groupingBy(TaskRecurrence::getTaskId));
+
+        Map<Long, List<UserTaskAssignment>> assignmentsByTask = assignments.stream()
+                .collect(Collectors.groupingBy(UserTaskAssignment::getTaskId));
+
+        tasks.forEach(task -> {
+            task.setTaskRecurrences(recurrencesByTask.getOrDefault(task.getId(), new ArrayList<>()));
+            task.setUserTaskAssignments(assignmentsByTask.getOrDefault(task.getId(), new ArrayList<>()));
+        });
+
+        return tasks;
+    }
+
     private CalendarTaskResponse convertProjectionToObject(CalendarTaskProjection projection){
         return CalendarTaskResponse.builder()
                 .id(projection.getId())
@@ -67,6 +104,8 @@ public class CalendarServiceImpl implements CalendarService {
                 .color(projection.getColor())
                 .listName(projection.getListName())
                 .isRecurring(false)
+                .assignedUsersCount(projection.getAssignedUsersCount())
+                .completedUsersCount(projection.getCompletedUsersCount())
                 .build();
     }
 
@@ -86,6 +125,12 @@ public class CalendarServiceImpl implements CalendarService {
 
                     if (recurrence == null) return;
 
+                    int totalAssignments = task.getUserTaskAssignments() != null ? task.getUserTaskAssignments().size() : 0;
+                    int completedAssignments = task.getUserTaskAssignments() != null ?
+                            (int) task.getUserTaskAssignments().stream()
+                                    .filter(a -> a.getStatus() == UserTaskAssignment.Status.COMPLETED)
+                                    .count() : 0;
+
                     LocalDate originalDueDate = task.getDueDate().toLocalDate();
                     if (!originalDueDate.isBefore(startDate) && !originalDueDate.isAfter(endDate)) {
                         String originalDateKey = originalDueDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
@@ -99,6 +144,8 @@ public class CalendarServiceImpl implements CalendarService {
                                 .color(task.getTaskList().getColor())
                                 .listName(task.getTaskList().getName())
                                 .isRecurring(true)
+                                .assignedUsersCount(totalAssignments)
+                                .completedUsersCount(completedAssignments)
                                 .recurringInstanceId("original_" + task.getId())
                                 .build();
                         tasksByDate.computeIfAbsent(originalDateKey, k -> new CopyOnWriteArrayList<>())
@@ -124,6 +171,8 @@ public class CalendarServiceImpl implements CalendarService {
                                 .color(task.getTaskList().getColor())
                                 .listName(task.getTaskList().getName())
                                 .isRecurring(true)
+                                .assignedUsersCount(totalAssignments)
+                                .completedUsersCount(0)
                                 .recurringInstanceId(generateInstanceId(task.getId(), nextDue))
                                 .build();
 

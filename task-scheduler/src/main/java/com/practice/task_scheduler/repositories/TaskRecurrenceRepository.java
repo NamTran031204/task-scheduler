@@ -11,8 +11,8 @@ import java.util.List;
 
 public interface TaskRecurrenceRepository extends JpaRepository<TaskRecurrence, Long> {
 
-    @Query(value = "SELECT * FROM task_recurrences WHERE is_active = true", nativeQuery = true)
-    List<TaskRecurrence> findByIsActiveEqualTrue();
+    @Query("SELECT tr FROM TaskRecurrence tr WHERE tr.isActive = true")
+    List<TaskRecurrence> findByIsActiveTrue();
 
     @Query(value = "SELECT * FROM task_recurrences WHERE task_id = :taskId AND is_active = true", nativeQuery = true)
     TaskRecurrence findByTaskId(@Param("taskId") long taskId);

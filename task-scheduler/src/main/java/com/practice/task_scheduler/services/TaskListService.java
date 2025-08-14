@@ -21,4 +21,5 @@ public interface TaskListService {
     public String userLeaveTaskList(long userId, long taskListId);
     public UserTaskListResponse getAllMemberInTaskList(long taskListId);
     public String authorityMember(long taskListId, long userId, long assignedId, UserTaskList.Role role);
+    public String deleteUserInTaskList(long taskListId, long executeUser, long targetUser);
 }

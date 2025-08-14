@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,11 +39,15 @@ public class TaskReminderServiceImpl implements TaskReminderService {
 
     private final NotificationRepository notificationRepository;
 
+    private final UserTaskAssignmentRepository userTaskAssignmentRepository;
+
     @Override
     @Transactional
     public void autoCreateOrUpdateReminder(Long taskId, Long userId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new TaskException(ErrorCode.TASK_NOT_FOUND, "Task not found"));
+
+        validateTaskAccess(task, userId);
 
         TaskReminder reminder = taskReminderRepository.findByTaskIdAndCreatedBy(taskId, userId)
                 .orElse(null);
@@ -64,6 +69,7 @@ public class TaskReminderServiceImpl implements TaskReminderService {
             reminder.setRemindAt(remindAt);
             reminder.setMessage("Task '" + task.getTitle() + "' is due soon!");
             reminder.setIsSent(false);
+            reminder.setSentAt(null);
         }
 
         taskReminderRepository.save(reminder);
@@ -182,25 +188,29 @@ public class TaskReminderServiceImpl implements TaskReminderService {
         return dueReminders.stream().map(reminder -> {
             try {
                 Task task = taskRepository.findById(reminder.getTaskId()).orElse(null);
-                if (task != null) {
-                    Notification notification = Notification.builder()
-                            .userId(reminder.getCreatedBy())
-                            .taskId(reminder.getTaskId())
-                            .title("Task Reminder!")
-                            .message(reminder.getMessage())
-                            .notificationType(Notification.NotificationType.REMINDER)
-                            .isRead(false)
-                            .build();
+                if (task == null) return null;
 
-                    notificationRepository.save(notification);
-                }
+                List<UserTaskAssignment> assignments = userTaskAssignmentRepository.findByTaskId(task.getId());
+                List<Notification> notifications = assignments.stream()
+                        .filter(assignment -> assignment.getStatus() == UserTaskAssignment.Status.IN_PROGRESS)
+                        .map(assignment -> Notification.builder()
+                                .userId(assignment.getUserId())
+                                .taskId(reminder.getTaskId())
+                                .title("Task Reminder!")
+                                .message(reminder.getMessage())
+                                .notificationType(Notification.NotificationType.REMINDER)
+                                .isRead(false)
+                                .build())
+                        .collect(Collectors.toList());
+
+                notificationRepository.saveAll(notifications);
                 markReminderAsSent(reminder.getId());
                 return TaskReminderResponse.toTaskReminder(reminder);
             } catch (Exception e) {
                 System.err.println("Failed to send reminder " + reminder.getId() + ": " + e.getMessage());
                 return null;
             }
-        }).filter(responses -> responses!=null).collect(Collectors.toList());
+        }).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
     private void validateReminderAccess(TaskReminder reminder, Long userId) {
@@ -213,10 +223,12 @@ public class TaskReminderServiceImpl implements TaskReminderService {
         TaskList taskList = taskListRepository.findById(task.getTaskListId())
                 .orElseThrow(() -> new TaskListException(ErrorCode.TASKLIST_NOT_FOUND, "TaskList not found"));
 
-        if (!taskList.getOwnerId().equals(userId) &&
-                !userTaskListRepository.existsByUserIdAndTaskListId(userId, task.getTaskListId()) &&
-                !task.getCreatedBy().equals(userId) &&
-                !userId.equals(task.getAssignedTo())) {
+        boolean hasAccess = userTaskAssignmentRepository.existsByTaskIdAndUserId(task.getId(), userId) ||
+                userTaskAssignmentRepository.existsByTaskIdAndAssignedBy(task.getId(), userId) ||
+                userTaskListRepository.existsByUserIdAndTaskListId(userId, task.getTaskListId()) ||
+                task.getCreatedBy().equals(userId);
+
+        if (!hasAccess) {
             throw new TaskException(ErrorCode.TASK_ACCESS_DENIED, "Access denied to this task");
         }
     }

@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 @EnableScheduling
 public class RecurrenceScheduler {
 
-    private final TaskRecurrenceService taskRecurrenceService;
-
-    @Scheduled(fixedRate = 300000, initialDelay = 5000)
-    private void TaskRecurrenceSchedule(){
-        taskRecurrenceService.updateAllTaskRecurrenceSchedule();
-    }
+//    private final TaskRecurrenceService taskRecurrenceService;
+//
+//    @Scheduled(fixedRate = 300000, initialDelay = 5000)
+//    private void TaskRecurrenceSchedule(){
+//        taskRecurrenceService.updateAllTaskRecurrenceSchedule();
+//    }
 }

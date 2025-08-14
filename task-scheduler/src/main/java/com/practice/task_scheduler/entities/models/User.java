@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,8 +13,8 @@ import java.util.List;
 @Builder
 @Table(name = "users")
 @Entity
-@ToString(exclude = {"taskLists", "userTaskLists", "createdTasks", "assignedTasks", "taskReminders", "attachments", "taskHistories", "notifications"})
-@EqualsAndHashCode(exclude = {"taskLists", "userTaskLists", "createdTasks", "assignedTasks", "taskReminders", "attachments", "taskHistories", "notifications", "createdAt", "updatedAt"})
+@ToString(exclude = {"taskLists", "userTaskLists", "taskReminders", "attachments", "taskHistories", "notifications", "userTaskAssignments", "assignedTaskAssignments"})
+@EqualsAndHashCode(exclude = {"taskLists", "userTaskLists", "taskReminders", "attachments", "taskHistories", "notifications", "userTaskAssignments", "assignedTaskAssignments", "createdAt", "updatedAt"})
 public class User{
 
     @Id
@@ -64,27 +65,39 @@ public class User{
 
 
     @OneToMany(mappedBy = "ownerUser", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<TaskList> taskLists;
 
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<UserTaskList> userTaskLists;
 
     //Tasks
     @OneToMany(mappedBy = "createdByUser", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Task> createdTasks;
 
-    @OneToMany(mappedBy = "assignedToUser", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Task> assignedTasks;
-
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<TaskReminder> taskReminders;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Attachment> attachments;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<TaskHistory> taskHistories;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Notification> notifications;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<UserTaskAssignment> userTaskAssignments;
+
+    @OneToMany(mappedBy = "assignedByUser", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<UserTaskAssignment> userAssignedTask;
 }

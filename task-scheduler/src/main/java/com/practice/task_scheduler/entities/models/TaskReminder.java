@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -49,10 +50,12 @@ public class TaskReminder {
 
     @JoinColumn(name = "task_id", insertable = false, updatable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Task task;
 
     @JoinColumn(name = "created_by", insertable = false, updatable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private User owner;
 
 
