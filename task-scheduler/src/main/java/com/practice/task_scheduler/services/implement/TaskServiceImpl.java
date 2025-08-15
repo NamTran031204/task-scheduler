@@ -261,7 +261,7 @@ public class TaskServiceImpl implements TaskService {
         }
 
         // notification
-        historyService.insertHistory(taskId, userId, TaskHistory.HistoryAction.DELETED, "delete task with id: %d" + taskId, "delete");
+        //historyService.insertHistory(taskId, userId, TaskHistory.HistoryAction.DELETED, "delete task with id: %d" + taskId, "delete");
         taskRepository.delete(task);
     }
 
