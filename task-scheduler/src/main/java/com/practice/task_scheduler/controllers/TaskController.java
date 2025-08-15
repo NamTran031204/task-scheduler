@@ -2,8 +2,10 @@ package com.practice.task_scheduler.controllers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.practice.task_scheduler.entities.dtos.TaskDTO;
+import com.practice.task_scheduler.entities.models.UserTaskAssignment;
 import com.practice.task_scheduler.entities.responses.TaskResponse;
 import com.practice.task_scheduler.services.TaskService;
+import com.practice.task_scheduler.services.UserTaskAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,6 +27,8 @@ import java.util.List;
 public class TaskController {
 
     private final TaskService taskService;
+
+    private final UserTaskAssignmentService userTaskAssignmentService;
 
     @PostMapping(value = "/user/{userId}/create")
     public ResponseEntity<?> createTask(
@@ -74,6 +78,7 @@ public class TaskController {
         return ResponseEntity.ok(taskPage);
     }
 
+    // bao gom ca assign to list of user
     @PutMapping("/user/{userId}/update/{id}")
     public ResponseEntity<?> updateTask(
             @PathVariable("id") long id,
@@ -97,16 +102,8 @@ public class TaskController {
             @PathVariable("id") long id,
             @PathVariable("userId") long userId
     ) {
-        return ResponseEntity.ok(taskService.completeTask(id, userId));
-    }
-
-    @PutMapping("/user/{userId}/assign/{id}/assign-to/{assignedToUserId}")
-    public ResponseEntity<?> assignTask(
-            @PathVariable("id") long id,
-            @PathVariable("userId") long userId,
-            @PathVariable("assignedToUserId") long assignedToUserId
-    ) {
-        return ResponseEntity.ok(taskService.assignTask(id, userId, assignedToUserId));
+        userTaskAssignmentService.userTaskStatusChange(userId, id, UserTaskAssignment.Status.COMPLETED);
+        return ResponseEntity.ok("Completed");
     }
 
     @PutMapping("/user/{userId}/undo_complete/{taskId}")
@@ -114,6 +111,15 @@ public class TaskController {
             @PathVariable("userId") long userId,
             @PathVariable("taskId") long taskId
     ) {
-        return ResponseEntity.ok(taskService.undoComplete(taskId, userId));
+        userTaskAssignmentService.userTaskStatusChange(userId, taskId, UserTaskAssignment.Status.IN_PROGRESS);
+        return ResponseEntity.ok("Undo Complete");
+    }
+
+    @GetMapping("/file/getAllFile/task/{taskId}/byUser/{userId}")
+    public ResponseEntity<?> getAllFile(
+            @PathVariable("taskId") long taskId,
+            @PathVariable("userId") long userId
+    ){
+        return ResponseEntity.ok(taskService.getAllFilesInTask(taskId, userId));
     }
 }

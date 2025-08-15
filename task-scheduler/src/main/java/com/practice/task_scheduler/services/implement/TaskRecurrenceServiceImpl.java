@@ -4,6 +4,7 @@ import com.practice.task_scheduler.entities.dtos.TaskRecurrenceDTO;
 import com.practice.task_scheduler.entities.models.Notification;
 import com.practice.task_scheduler.entities.models.Task;
 import com.practice.task_scheduler.entities.models.TaskRecurrence;
+import com.practice.task_scheduler.entities.models.UserTaskAssignment;
 import com.practice.task_scheduler.entities.responses.TaskRecurrenceResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
 import com.practice.task_scheduler.exceptions.exception.RecurrenceException;
@@ -11,17 +12,17 @@ import com.practice.task_scheduler.exceptions.exception.TaskException;
 import com.practice.task_scheduler.repositories.NotificationRepository;
 import com.practice.task_scheduler.repositories.TaskRecurrenceRepository;
 import com.practice.task_scheduler.repositories.TaskRepository;
+import com.practice.task_scheduler.repositories.UserTaskAssignmentRepository;
 import com.practice.task_scheduler.services.TaskRecurrenceService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
-import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +34,8 @@ public class TaskRecurrenceServiceImpl implements TaskRecurrenceService {
     private final TaskRepository taskRepository;
 
     private final NotificationRepository notificationRepository;
+
+    private final UserTaskAssignmentRepository userTaskAssignmentRepository;
 
     @Override
     @Transactional
@@ -78,33 +81,45 @@ public class TaskRecurrenceServiceImpl implements TaskRecurrenceService {
     @Override
     @Transactional
     public void updateAllTaskRecurrenceSchedule() {
-        List<TaskRecurrence> taskRecurrences = taskRecurrenceRepository.findAll();
-        for (TaskRecurrence taskRecurrence : taskRecurrences){
-            if (taskRecurrence.getIsActive().equals(false)){
-                deleteRecurrence(taskRecurrence.getId());
-                continue;
-            }
-            if (taskRecurrence.getNextDueDate().isBefore(LocalDateTime.now())){
-                Task task = taskRepository.findById(taskRecurrence.getTaskId())
-                        .orElse(null);
-                if (task == null) continue;
-                Notification notification = Notification.builder()
-                        .userId(task.getCreatedBy())
-                        .taskId(task.getId())
-                        .title("Task Reminder!")
-                        .message("Task '" + task.getTitle() + "' passed due " + hourAfterDue(taskRecurrence.getNextDueDate()) + "hour!")
-                        .notificationType(Notification.NotificationType.REMINDER)
-                        .isRead(false)
-                        .build();
+        List<TaskRecurrence> taskRecurrences = taskRecurrenceRepository.findByIsActiveTrue();
+        for (TaskRecurrence recurrence : taskRecurrences){
+            try {
+                Task task = taskRepository.findById(recurrence.getTaskId()).orElse(null);
+                if (task == null) {
+                    recurrence.setIsActive(false);
+                    taskRecurrenceRepository.save(recurrence);
+                    return;
+                }
 
-                notificationRepository.save(notification);
+                LocalDateTime now = LocalDateTime.now();
+
+                if (recurrence.getNextDueDate() != null && recurrence.getNextDueDate().isBefore(now)) {
+                    if (shouldContinueRecurrence(recurrence)) {
+                        createNextTaskInstance(task, recurrence);
+
+                        LocalDateTime currentNextDue = recurrence.getNextDueDate();
+                        LocalDateTime newNextDue = updateNextDueDate(
+                                recurrence.getRecurrenceType(),
+                                currentNextDue
+                        );
+
+                        recurrence.setNextDueDate(newNextDue);
+                        taskRecurrenceRepository.save(recurrence);
+
+                    } else {
+                        recurrence.setIsActive(false);
+                        taskRecurrenceRepository.save(recurrence);
+                    }
+                }
+            } catch (RuntimeException e) {
+                throw new RuntimeException(e);
             }
         }
     }
 
     @Override
     @Transactional
-    public void autoSaveTaskRecurrenceOnUpdate(Task task) {
+    public void autoSaveTaskRecurrenceOnUpdate(Task task) { //
         TaskRecurrence taskRecurrence = taskRecurrenceRepository.findByTaskId(task.getId());
         if (taskRecurrence == null){
             return;
@@ -186,10 +201,65 @@ public class TaskRecurrenceServiceImpl implements TaskRecurrenceService {
         switch (type) {
             case DAILY -> date =  date.plusDays(1);
             case MONTHLY -> date = date.plusMonths(1);
-            case WEEKLY -> date = date.plusYears(1);
-            case YEARLY -> date = date.plusWeeks(1);
+            case YEARLY -> date = date.plusYears(1);
+            case WEEKLY -> date = date.plusWeeks(1);
             default -> {return null;}
         }
         return LocalDateTime.of(date, time);
+    }
+
+    private boolean shouldContinueRecurrence(TaskRecurrence recurrence) {
+        if (recurrence.getRecurrenceEndDate() != null &&
+                LocalDate.now().isAfter(recurrence.getRecurrenceEndDate())) {
+            return false;
+        }
+
+        return recurrence.getRecurrenceInterval() != null && recurrence.getRecurrenceInterval() > 0;
+    }
+
+    private void createNextTaskInstance(Task originalTask, TaskRecurrence recurrence) {
+        Task newTask = Task.builder()
+                .title(originalTask.getTitle())
+                .description(originalTask.getDescription())
+                .priority(originalTask.getPriority())
+                .dueDate(recurrence.getNextDueDate())
+                .taskListId(originalTask.getTaskListId())
+                .createdBy(originalTask.getCreatedBy())
+                .isCompleted(false)
+                .build();
+
+        Task savedTask = taskRepository.save(newTask);
+
+        List<UserTaskAssignment> originalAssignments = userTaskAssignmentRepository.findByTaskId(originalTask.getId());
+        List<UserTaskAssignment> newAssignments = originalAssignments.stream()
+                .map(assignment -> UserTaskAssignment.builder()
+                        .taskId(savedTask.getId())
+                        .userId(assignment.getUserId())
+                        .assignedBy(assignment.getAssignedBy())
+                        .status(UserTaskAssignment.Status.IN_PROGRESS)
+                        .build())
+                .collect(Collectors.toList());
+
+        userTaskAssignmentRepository.saveAll(newAssignments);
+
+        // notification
+        createRecurringTaskNotifications(savedTask, newAssignments);
+    }
+
+    private void createRecurringTaskNotifications(Task task, List<UserTaskAssignment> assignments) {
+        List<Notification> notifications = assignments.stream()
+                .map(assignment -> Notification.builder()
+                        .userId(assignment.getUserId())
+                        .taskId(task.getId())
+                        .title("New Recurring Task")
+                        .message("A new instance of recurring task '" + task.getTitle() +
+                                "' is now available. Due: " +
+                                (task.getDueDate() != null ? task.getDueDate() : "No due date"))
+                        .notificationType(Notification.NotificationType.TASK_ASSIGNED)
+                        .isRead(false)
+                        .build())
+                .collect(Collectors.toList());
+
+        notificationRepository.saveAll(notifications);
     }
 }

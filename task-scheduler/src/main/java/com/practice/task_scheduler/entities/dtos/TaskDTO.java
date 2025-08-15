@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @NoArgsConstructor
@@ -19,7 +20,7 @@ import java.time.LocalDateTime;
 public class TaskDTO {
 
     @JsonProperty("title")
-    @NotBlank(message = "Task title is required")
+    @NotBlank
     private String title;
 
     @JsonProperty("description")
@@ -29,13 +30,17 @@ public class TaskDTO {
     private Task.Priority priority;
 
     @JsonProperty("due_date")
-//    @DateTimeFormat(pattern = "yyyy-MM-dd hh:mm:ss")
     private LocalDateTime dueDate;
 
     @JsonProperty("task_list_id")
     @NotNull(message = "Task list ID is required")
     private Long taskListId;
 
+    // assign someone
     @JsonProperty("assigned_to")
-    private Long assignedTo;
+    private List<Long> assignedTo;
+
+    // remove someone
+    @JsonProperty("remove_user")
+    private List<Long> removedUser;
 }

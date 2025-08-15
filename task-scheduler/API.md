@@ -72,6 +72,7 @@ All error responses follow this format:
   "username": "john_doe",
   "email": "john@example.com",
   "fullName": "John Doe",
+  "avatarUrl": null,
   "createdAt": "2025-08-04T10:30:00",
   "updatedAt": "2025-08-04T10:30:00"
 }
@@ -146,6 +147,7 @@ All error responses follow this format:
   "username": "john_doe",
   "email": "john@example.com",
   "fullName": "John Doe",
+  "avatarUrl": "http://example.com/uploads/user_1_avatar.jpg",
   "createdAt": "2025-08-04T10:30:00",
   "updatedAt": "2025-08-04T10:30:00"
 }
@@ -193,17 +195,28 @@ All error responses follow this format:
 - **Database Storage**: 
   - **Table**: `users`
   - **Operation**: UPDATE
-  - **Fields affected**: `username`, `full_name`, `updated_at`
-  - **Notes**: Nếu file `avatar` được cung cấp, nó sẽ được validate và file avatar cũ sẽ bị xóa;
+  - **Fields affected**: `username`, `full_name`, `avatar_url`, `updated_at`
+  - **Notes**: Nếu file `avatar` được cung cấp, nó sẽ được validate và file avatar cũ sẽ bị xóa
 - **Path Parameters**: 
   - `id` (long): User ID
-- **Request Input**: form-data body (key - type)
-  + key: username - type: text,        
-  + key: fullname - type: text,
-  + key: avatar - type: file,
+- **Request Body**: `multipart/form-data`
+  - `username` (string, form-data): New username (optional)        
+  - `fullname` (string, form-data): New full name (optional)
+  - `avatar` (file, form-data): New avatar image file (optional)
 - **Response (200 OK)**:
 ```json
 "update complete"
+```
+
+**Frontend Implementation Note:**
+- Use `FormData` to construct the request body
+- All fields are optional - send only the fields you want to update
+- Example FormData construction:
+```javascript
+const formData = new FormData();
+formData.append('username', 'new_username');
+formData.append('fullname', 'New Full Name');
+formData.append('avatar', file); // file object from input
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
@@ -266,7 +279,9 @@ All error responses follow this format:
         "color": "#4285F4",
         "listName": "Work Tasks",
         "recurringInstanceId": null,
-        "isRecurring": false
+        "isRecurring": false,
+        "assignedUsersCount": 3,
+        "completedUsersCount": 1
       }
     ],
     "2025-01-16": []
@@ -279,9 +294,20 @@ All error responses follow this format:
     "MEDIUM": 0,
     "HIGH": 1,
     "URGENT": 0
-  }
+  },
+  "totalAssignments": 15,
+  "completedAssignments": 8,
+  "overallFinishRate": 53.33
 }
 ```
+
+**Response Structure Explanation for Frontend:**
+- `tasksByDate`: Map where keys are date strings (YYYY-MM-DD) and values are arrays of CalendarTaskResponse
+- `assignedUsersCount`: Total number of users assigned to this task
+- `completedUsersCount`: Number of users who completed their assignment for this task
+- `totalAssignments`: Total number of task assignments for the user in this period
+- `completedAssignments`: Number of completed assignments for the user in this period
+- `overallFinishRate`: Percentage completion rate (completedAssignments/totalAssignments * 100)
 - **Exceptions**:
   - `404 NOT_FOUND` - USER_NOT_FOUND (1002): User not found
   - `400 BAD_REQUEST` - VALIDATE_ERROR (12001): Invalid date parameters
@@ -294,11 +320,11 @@ All error responses follow this format:
 ### 2.1 Create Task
 - **Endpoint**: `/task/user/{userId}/create`
 - **HTTP Method**: `POST`
-- **Function/Use Case**: Tạo một task mới (không bao gồm file attachments)
+- **Function/Use Case**: Tạo một task mới với khả năng assign cho nhiều user (không bao gồm file attachments)
 - **Database Storage**: 
-  - **Table**: `tasks`
-  - **Operation**: INSERT
-  - **Fields affected**: `title`, `description`, `priority` (enum: LOW/MEDIUM/HIGH/URGENT), `due_date`, `task_list_id`, `created_by`, `assigned_to`, `is_completed` (default: false), `created_at`, `updated_at`
+  - **Table**: `tasks`, `user_task_assignments`
+  - **Operation**: INSERT vào cả 2 bảng
+  - **Fields affected**: `title`, `description`, `priority` (enum: LOW/MEDIUM/HIGH/URGENT), `due_date`, `task_list_id`, `created_by`, `is_completed` (default: false), `created_at`, `updated_at`
   - **Auto-generated**: `id`, `created_at`, `updated_at`
   - **Validation**: task_list_id phải tồn tại và user phải có quyền truy cập
 - **Path Parameters**: 
@@ -306,12 +332,13 @@ All error responses follow this format:
 - **Request Body** (TaskDTO):
 ```json
 {
-  "title": "string",           // required, cannot be blank
-  "description": "string",     // optional
-  "priority": "string",        // optional, enum: "LOW", "MEDIUM", "HIGH", "URGENT"
-  "due_date": "2025-08-10T14:30:00",  // optional, ISO datetime format
-  "task_list_id": 1,          // required, must be valid task list ID
-  "assigned_to": 2            // optional, user ID to assign task to
+  "title": "string",                    // required, cannot be blank
+  "description": "string",              // optional
+  "priority": "string",                 // optional, enum: "LOW", "MEDIUM", "HIGH", "URGENT"
+  "due_date": "2025-08-10T14:30:00",   // optional, ISO datetime format
+  "task_list_id": 1,                   // required, must be valid task list ID
+  "assigned_to": [2, 3, 5],            // optional, array of user IDs to assign task to
+  "remove_user": [4]                   // optional, array of user IDs to remove from task
 }
 ```
 - **Response (200 OK)** (TaskResponse):
@@ -323,12 +350,25 @@ All error responses follow this format:
   "isCompleted": false,
   "priority": "HIGH",
   "dueDate": "2025-08-10T14:30:00",
-  "completedAt": null,
   "taskListId": 1,
   "createdBy": 1,
-  "assignedTo": 2,
   "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T10:30:00"
+  "updatedAt": "2025-08-04T10:30:00",
+  "userTasksResponse": {
+    "IN_PROGRESS": [
+      {
+        "userId": 2,
+        "username": "john_doe",
+        "fullName": "John Doe",
+        "avatarUrl": "http://example.com/avatar2.jpg",
+        "assignedAt": "2025-08-04T10:30:00",
+        "changedStatus": null,
+        "assignedBy": 1,
+        "assignedByName": "admin_user"
+      }
+    ],
+    "COMPLETED": []
+  }
 }
 ```
 - **Exceptions**:
@@ -369,11 +409,11 @@ All error responses follow this format:
 ### 2.3 Get Task by ID
 - **Endpoint**: `/task/user/{userId}/{taskId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Lấy thông tin chi tiết của task
+- **Function/Use Case**: Lấy thông tin chi tiết của task bao gồm assignment information
 - **Database Storage**: 
-  - **Tables**: `tasks`, `task_lists`
-  - **Operation**: SELECT with JOIN (task -> task_list)
-  - **Fields queried**: Chỉ các fields của Task (TaskResponse)
+  - **Tables**: `tasks`, `task_lists`, `user_task_assignments`, `users`
+  - **Operation**: SELECT with JOINs (task -> task_list, task -> assignments -> users)
+  - **Fields queried**: Task fields + assignment details với user information
   - **Access control**: User phải là owner hoặc member của task list chứa task này
 - **Path Parameters**: 
   - `userId` (long): User ID
@@ -387,12 +427,36 @@ All error responses follow this format:
   "isCompleted": false,
   "priority": "HIGH",
   "dueDate": "2025-08-10T14:30:00",
-  "completedAt": null,
   "taskListId": 1,
   "createdBy": 1,
-  "assignedTo": 2,
   "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T10:30:00"
+  "updatedAt": "2025-08-04T10:30:00",
+  "userTasksResponse": {
+    "IN_PROGRESS": [
+      {
+        "userId": 2,
+        "username": "john_doe",
+        "fullName": "John Doe",
+        "avatarUrl": "http://example.com/avatar2.jpg",
+        "assignedAt": "2025-08-04T10:30:00",
+        "changedStatus": null,
+        "assignedBy": 1,
+        "assignedByName": "admin_user"
+      }
+    ],
+    "COMPLETED": [
+      {
+        "userId": 3,
+        "username": "jane_smith",
+        "fullName": "Jane Smith",
+        "avatarUrl": "http://example.com/avatar3.jpg",
+        "assignedAt": "2025-08-03T09:00:00",
+        "changedStatus": "2025-08-04T15:30:00",
+        "assignedBy": 1,
+        "assignedByName": "admin_user"
+      }
+    ]
+  }
 }
 ```
 - **Exceptions**:
@@ -427,12 +491,25 @@ All error responses follow this format:
       "isCompleted": false,
       "priority": "HIGH",
       "dueDate": "2025-08-10T14:30:00",
-      "completedAt": null,
       "taskListId": 1,
       "createdBy": 1,
-      "assignedTo": 2,
       "createdAt": "2025-08-04T10:30:00",
-      "updatedAt": "2025-08-04T10:30:00"
+      "updatedAt": "2025-08-04T10:30:00",
+      "userTasksResponse": {
+        "IN_PROGRESS": [
+          {
+            "userId": 2,
+            "username": "john_doe",
+            "fullName": "John Doe",
+            "avatarUrl": "http://example.com/avatar2.jpg",
+            "assignedAt": "2025-08-04T10:30:00",
+            "changedStatus": null,
+            "assignedBy": 1,
+            "assignedByName": "admin_user"
+          }
+        ],
+        "COMPLETED": []
+      }
     }
   ],
   "totalElements": 25,
@@ -448,7 +525,7 @@ All error responses follow this format:
 ### 2.5 Get Tasks by User ID
 - **Endpoint**: `/task/user/{userId}`
 - **HTTP Method**: `GET`
-- **Function/Use Case**: Retrieve all tasks created by a user
+- **Function/Use Case**: Lấy ra tất cả các task tạo bởi user
 - **Database Storage**: 
   - **Table**: `tasks`
   - **Operation**: SELECT with pagination, WHERE `created_by` = userId
@@ -470,12 +547,25 @@ All error responses follow this format:
       "isCompleted": false,
       "priority": "HIGH",
       "dueDate": "2025-08-10T14:30:00",
-      "completedAt": null,
       "taskListId": 1,
       "createdBy": 1,
-      "assignedTo": 2,
       "createdAt": "2025-08-04T10:30:00",
-      "updatedAt": "2025-08-04T10:30:00"
+      "updatedAt": "2025-08-04T10:30:00",
+      "userTasksResponse": {
+        "IN_PROGRESS": [
+          {
+            "userId": 2,
+            "username": "john_doe",
+            "fullName": "John Doe",
+            "avatarUrl": "http://example.com/avatar2.jpg",
+            "assignedAt": "2025-08-04T10:30:00",
+            "changedStatus": null,
+            "assignedBy": 1,
+            "assignedByName": "admin_user"
+          }
+        ],
+        "COMPLETED": []
+      }
     }
   ],
   "totalElements": 15,
@@ -496,10 +586,11 @@ All error responses follow this format:
   + cập nhật mô tả của task
   + Cập nhật mức độ ưu tiên của task (cái này có thể làm màn hình riêng)
   + Thêm hoặc cập nhật ngày đến hạn của task (vì task ban đầu được khởi tạo chưa chắc có ngày đến hạn)
+  + Assign task cho thêm users hoặc remove users khỏi task
 - **Database Storage**: 
-  - **Table**: `tasks`
-  - **Operation**: UPDATE
-  - **Fields affected**: `title`, `description`, `priority`, `due_date`, `assigned_to`, `updated_at`
+  - **Table**: `tasks`, `user_task_assignments`
+  - **Operation**: UPDATE tasks, INSERT/DELETE user_task_assignments
+  - **Fields affected**: `title`, `description`, `priority`, `due_date`, `updated_at`
   - **Access control**: Only task creator or assigned user can update
 - **Path Parameters**: 
   - `userId` (long): User ID
@@ -507,10 +598,12 @@ All error responses follow this format:
 - **Request Body** (TaskDTO - partial update):
 ```json
 {
-  "title": "string",           // optional
-  "description": "string",     // optional
-  "priority": "string",        // optional, enum: "LOW", "MEDIUM", "HIGH", "URGENT"
-  "due_date": "2025-08-15T16:00:00"  // optional, ISO datetime format
+  "title": "string",                    // optional
+  "description": "string",              // optional
+  "priority": "string",                 // optional, enum: "LOW", "MEDIUM", "HIGH", "URGENT"
+  "due_date": "2025-08-15T16:00:00",   // optional, ISO datetime format
+  "assigned_to": [3, 4],               // optional, array of user IDs to assign
+  "remove_user": [2]                   // optional, array of user IDs to remove
 }
 ```
 - **Response (200 OK)** (TaskResponse):
@@ -522,12 +615,35 @@ All error responses follow this format:
   "isCompleted": false,
   "priority": "URGENT",
   "dueDate": "2025-08-15T16:00:00",
-  "completedAt": null,
   "taskListId": 1,
   "createdBy": 1,
-  "assignedTo": 2,
   "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T14:20:00"
+  "updatedAt": "2025-08-04T14:20:00",
+  "userTasksResponse": {
+    "IN_PROGRESS": [
+      {
+        "userId": 3,
+        "username": "jane_smith",
+        "fullName": "Jane Smith",
+        "avatarUrl": "http://example.com/avatar3.jpg",
+        "assignedAt": "2025-08-04T14:20:00",
+        "changedStatus": null,
+        "assignedBy": 1,
+        "assignedByName": "admin_user"
+      },
+      {
+        "userId": 4,
+        "username": "bob_wilson",
+        "fullName": "Bob Wilson",
+        "avatarUrl": "http://example.com/avatar4.jpg",
+        "assignedAt": "2025-08-04T14:20:00",
+        "changedStatus": null,
+        "assignedBy": 1,
+        "assignedByName": "admin_user"
+      }
+    ],
+    "COMPLETED": []
+  }
 }
 ```
 - **Exceptions**:
@@ -540,11 +656,11 @@ All error responses follow this format:
 ### 2.7 Delete Task
 - **Endpoint**: `/task/user/{userId}/delete/{id}`
 - **HTTP Method**: `DELETE`
-- **Function/Use Case**: Delete a task
+- **Function/Use Case**: Delete a task và tất cả related assignments
 - **Database Storage**: 
-  - **Table**: `tasks` (primary)
+  - **Table**: `tasks` (primary), `user_task_assignments`
   - **Operation**: DELETE CASCADE
-  - **Related tables affected**: `task_reminders`, `task_recurrences`, `attachments`, `task_histories`, `notifications` (all related to this task)
+  - **Related tables affected**: `task_reminders`, `task_recurrences`, `attachments`, `task_histories`, `notifications`, `user_task_assignments` (all related to this task)
   - **Access control**: Only task creator or task list HOST (owner) can delete
 - **Path Parameters**: 
   - `userId` (long): User ID
@@ -560,106 +676,80 @@ All error responses follow this format:
 ### 2.8 Complete Task
 - **Endpoint**: `/task/user/{userId}/complete/{id}`
 - **HTTP Method**: `PUT`
-- **Function/Use Case**: Mark a task as completed
+- **Function/Use Case**: người dùng thuộc task complete task của chính mình -> nếu tất cả mọi người trong task đều đã complete task thì task sẽ được đánh dấu isComplete = true.
 - **Database Storage**: 
-  - **Table**: `tasks`
+  - **Table**: `user_task_assignments`
   - **Operation**: UPDATE
-  - **Fields affected**: `is_completed` (set to true), `completed_at` (set to current timestamp), `updated_at`
-  - **Access control**: Only memeber user (HOST hoặc MEMBER) can complete the task
+  - **Fields affected**: `status` (set to COMPLETED), `changed_status` (set to current timestamp)
+  - **Business Logic**: Task chỉ được marked completed khi tất cả assigned users đều complete
+  - **Access control**: Only assigned user can complete their own assignment
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `id` (long): Task ID
-- **Response (200 OK)** (TaskResponse):
+- **Response (200 OK)**:
 ```json
-{
-  "id": 1,
-  "title": "Complete project documentation",
-  "description": "Write comprehensive API documentation",
-  "isCompleted": true,
-  "priority": "HIGH",
-  "dueDate": "2025-08-10T14:30:00",
-  "completedAt": "2025-08-04T15:45:00",
-  "taskListId": 1,
-  "createdBy": 1,
-  "assignedTo": 2,
-  "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T15:45:00"
-}
+"Completed"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
   - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
   - `400 BAD_REQUEST` - TASK_ALREADY_COMPLETED (3003): Task is already completed
 
-### 2.9 Assign Task
-- **Endpoint**: `/task/user/{userId}/assign/{id}/assign-to/{assignedToUserId}`
-- **HTTP Method**: `PUT`
-- **Function/Use Case**: Assign a task to another user
-- **Database Storage**: 
-  - **Table**: `tasks`
-  - **Operation**: UPDATE
-  - **Fields affected**: `assigned_to` (set to assignedToUserId), `updated_at`
-  - **Validation**: For shared task lists, `assignedToUserId` must be the owner or a member of the task list (ý là task dành cho nhiều người)
-- **Path Parameters**: 
-  - `userId` (long): User ID (assigner)
-  - `id` (long): Task ID
-  - `assignedToUserId` (long): User ID to assign task to
-- **Response (200 OK)** (TaskResponse):
-```json
-{
-  "id": 1,
-  "title": "Complete project documentation",
-  "description": "Write comprehensive API documentation",
-  "isCompleted": false,
-  "priority": "HIGH",
-  "dueDate": "2025-08-10T14:30:00",
-  "completedAt": null,
-  "taskListId": 1,
-  "createdBy": 1,
-  "assignedTo": 3,
-  "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T16:20:00"
-}
-```
-- **Exceptions**:
-  - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
-  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to assign
-  - `404 NOT_FOUND` - USER_NOT_FOUND (1002): Assigned user not found
-  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): Cannot assign to non-member (for shared lists)
-
-### 2.10 Undo Task Completion
+### 2.9 Undo Task Completion
 - **Endpoint**: `/task/user/{userId}/undo_complete/{taskId}`
 - **HTTP Method**: `PUT`
-- **Function/Use Case**: Revert a completed task back to pending status
+- **Function/Use Case**: Revert user's assignment status back to IN_PROGRESS
 - **Database Storage**: 
-  - **Table**: `tasks`
+  - **Table**: `user_task_assignments`
   - **Operation**: UPDATE
-  - **Fields affected**: `is_completed` (set to false), `completed_at` (set to current timestamp), `updated_at`
-  - **Access control**: Only task creator or assigned user can undo completion
+  - **Fields affected**: `status` (set to IN_PROGRESS), `changed_status` (set to current timestamp)
+  - **Business Logic**: Task status được update based on all user assignments
+  - **Access control**: Only assigned user can undo their own completion
 - **Path Parameters**: 
   - `userId` (long): User ID
   - `taskId` (long): Task ID
-- **Response (200 OK)** (TaskResponse):
+- **Response (200 OK)**:
 ```json
-{
-  "id": 1,
-  "title": "Complete project documentation",
-  "description": "Write comprehensive API documentation",
-  "isCompleted": false,
-  "priority": "HIGH",
-  "dueDate": "2025-08-10T14:30:00",
-  "completedAt": null,
-  "taskListId": 1,
-  "createdBy": 1,
-  "assignedTo": 2,
-  "createdAt": "2025-08-04T10:30:00",
-  "updatedAt": "2025-08-04T17:10:00"
-}
+"Undo Complete"
 ```
 - **Exceptions**:
   - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
+  - `404 NOT_FOUND` - ASSIGNMENT_NOT_FOUND: User assignment not found
   - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
-  - `400 BAD_REQUEST` - TASK_IS_NOT_COMPLETED (3007): Task is not completed
+  - `400 BAD_REQUEST` - ASSIGNMENT_NOT_COMPLETED: Assignment is not completed
+
+### 2.10 Get All Files in Task
+- **Endpoint**: `/task/file/getAllFile/task/{taskId}/byUser/{userId}`
+- **HTTP Method**: `GET`
+- **Function/Use Case**: Retrieve all file attachments of a specific task
+- **Database Storage**: 
+  - **Tables**: `attachments`, `tasks`, `task_lists`
+  - **Operation**: SELECT with JOINs for access control
+  - **Fields queried**: Attachment information với file metadata
+  - **Access control**: User phải có quyền truy cập task thông qua task list membership
+- **Path Parameters**: 
+  - `taskId` (long): Task ID
+  - `userId` (long): User ID
+- **Response (200 OK)** (List<AttachmentResponse>):
+```json
+[
+  {
+    "id": 1,
+    "fileName": "project_spec.pdf",
+    "filePath": "uploads/task_1_project_spec.pdf",
+    "fileSize": 2048576,
+    "fileType": "application/pdf",
+    "attachmentType": "FILE",
+    "uploadedBy": 1,
+    "uploadedAt": "2025-08-04T11:00:00",
+    "taskId": 1
+  }
+]
+```
+- **Exceptions**:
+  - `404 NOT_FOUND` - TASK_NOT_FOUND (3001): Task not found
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
+  - `403 FORBIDDEN` - TASK_ACCESS_DENIED (3002): No access to task
 
 ---
 
@@ -834,15 +924,19 @@ All error responses follow this format:
 ### 3.6 Share Task List
 - **Endpoint**: `/task-list/share/{id}/user/{userId}`
 - **HTTP Method**: `PUT`
-- **Function/Use Case**: Generate a share code for the task list
+- **Function/Use Case**: Generate a share code for the task list, đồng thời thay đổi trạng thái share: share <-> noShare
 - **Database Storage**: 
   - **Table**: `task_lists`
   - **Operation**: UPDATE
-  - **Fields affected**: toggle `is_shared` (true/false), `share_code` (generate once if absent), `updated_at`
+  - **Fields affected**: toggle `is_shared` (true ↔ false), `share_code` (generate if null), `updated_at`
+  - **Business Logic**: 
+    - Toggles `isShared` status each time called
+    - Generates new `shareCode` if it doesn't exist
+    - Keeps existing `shareCode` if already present
   - **Access control**: Only task list owner can share/unshare
 - **Path Parameters**: 
   - `id` (long): Task List ID
-  - `userId` (long): User ID
+  - `userId` (long): User ID (must be owner)
 - **Response (200 OK)** (TaskListResponse):
 ```json
 {
@@ -857,6 +951,11 @@ All error responses follow this format:
   "updatedAt": "2025-08-04T15:45:00"
 }
 ```
+
+**Frontend Usage Note:**
+- Check `isShared` field in response to determine current sharing status
+- Show `shareCode` to users only when `isShared` is true
+- `shareCode` is generated once and persists even when sharing is disabled
 - **Exceptions**:
   - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
   - `403 FORBIDDEN` - TASKLIST_ACCESS_DENIED (2003): Access denied
@@ -923,14 +1022,20 @@ All error responses follow this format:
 ```json
 "Delete successfully"
 ```
-or
+**Alternative responses based on business logic:**
+- If user was HOST and ownership transferred:
 ```json
 "Authority role HOST to new User"
 ```
-or
+- If user was the only member and task list was deleted:
 ```json
 "Cannot find authority, so delete task list"
 ```
+
+**Response Logic for Frontend:**
+- All responses are successful (200 OK)
+- Frontend should refresh task list data after any response
+- Message indicates what action was taken by the system
 - **Exceptions**:
   - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: User is not a member of this task list
   - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
@@ -951,21 +1056,55 @@ or
 {
   "userByRoleAndJoinedAt": {
     "HOST": [
-      [ { "id": 1, 
+      [
+        {
+          "id": 1, 
           "username": "john_doe", 
           "email": "john@example.com", 
           "fullName": "John Doe", 
-          "avatarUrl": null 
+          "avatarUrl": "http://example.com/avatar1.jpg",
+          "createdAt": "2025-08-01T08:00:00",
+          "updatedAt": "2025-08-01T08:00:00"
         }, 
-        "2025-08-04T10:30:00" 
+        "2025-08-04T10:30:00"
       ]
     ],
     "MEMBER": [
-      [ { "id": 2, "username": "jane_smith", "email": "jane@example.com", "fullName": "Jane Smith", "avatarUrl": null }, "2025-08-05T14:20:00" ]
+      [
+        {
+          "id": 2, 
+          "username": "jane_smith", 
+          "email": "jane@example.com", 
+          "fullName": "Jane Smith", 
+          "avatarUrl": "http://example.com/avatar2.jpg",
+          "createdAt": "2025-07-15T09:00:00", 
+          "updatedAt": "2025-08-03T11:00:00"
+        }, 
+        "2025-08-05T14:20:00"
+      ],
+      [
+        {
+          "id": 3,
+          "username": "bob_wilson",
+          "email": "bob@example.com",
+          "fullName": "Bob Wilson",
+          "avatarUrl": null,
+          "createdAt": "2025-07-20T10:30:00",
+          "updatedAt": "2025-08-02T16:45:00"
+        },
+        "2025-08-06T09:15:00"
+      ]
     ]
   }
 }
 ```
+
+**Response Structure Explanation for Frontend:**
+- `userByRoleAndJoinedAt` is a map with keys "HOST" and "MEMBER"
+- Each key contains an array of tuples (pairs)
+- Each tuple contains: [UserResponse object, joinedAt timestamp]
+- UserResponse includes: `id`, `username`, `email`, `fullName`, `avatarUrl`, `createdAt`, `updatedAt`
+- Second element in tuple is the `joinedAt` timestamp when user joined the task list
 - **Exceptions**:
   - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
 
@@ -1009,6 +1148,34 @@ or
 - The endpoint follows role-based access control where only HOST users can modify member roles
 - If target user already has the requested role, the operation completes successfully without changes
 - Role changes affect task assignment permissions within the task list
+
+### 3.11 Delete User from Task List
+- **Endpoint**: `/task-list/delete/user/{targetUser}/inTaskList/{taskListId}/byUser/{executeUser}`
+- **HTTP Method**: `DELETE`
+- **Function/Use Case**: Remove a specific user from task list membership (kick user out)
+- **Database Storage**: 
+  - **Primary Table**: `user_task_lists`
+    - **Operation**: DELETE
+    - **Condition**: WHERE user_id = targetUser AND task_list_id = taskListId
+  - **Business Rules**:
+    - Only HOST can delete other members
+    - Cannot delete the task list owner unless there's another HOST to transfer ownership
+    - May trigger ownership transfer if deleting current owner
+- **Path Parameters**: 
+  - `targetUser` (long): User ID to be removed from task list
+  - `taskListId` (long): Task List ID  
+  - `executeUser` (long): User ID performing the deletion (must be HOST)
+- **Response (200 OK)**:
+```json
+"User removed successfully"
+```
+- **Exceptions**:
+  - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: Execute user is not a member of this task list
+  - `403 FORBIDDEN` - TASKLIST_ACCESS_DENIED (2003): Only HOST can remove members
+  - `404 NOT_FOUND` - USERTASKLIST_NOT_FOUND: Target user is not a member of this task list
+  - `404 NOT_FOUND` - TASKLIST_NOT_FOUND (2002): Task list not found
+  - `400 BAD_REQUEST` - TASKLIST_EXCEPTION (2007): Cannot remove owner without transferring ownership
+
 ---
 
 ## 4. Task Reminder APIs
@@ -1234,7 +1401,7 @@ or
 ```json
 {
   "recurrence_type": "string",      // required, enum: "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
-  "recurrence_interval": 1,         // optional, default: 1 (repeat every N periods)
+  "recurrence_interval": 1,         // required, default: 1 (repeat every N periods)
   "recurrence_end_date": "2025-12-31"  // optional, YYYY-MM-DD
 }
 ```

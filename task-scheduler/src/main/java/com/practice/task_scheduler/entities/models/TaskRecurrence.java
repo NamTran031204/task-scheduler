@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -59,6 +60,7 @@ public class TaskRecurrence {
 
     @JoinColumn(name = "task_id", insertable = false, updatable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Task task;
 
 

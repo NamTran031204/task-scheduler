@@ -19,4 +19,8 @@ public class CalendarResponse {
     private LocalDate endDate;
     private int totalTasks;
     private Map<String, Integer> taskCountsByPriority;
+    private Integer totalAssignments;
+    private Integer completedAssignments;
+    private Double overallFinishRate;
+
 }

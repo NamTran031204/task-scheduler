@@ -1,5 +1,6 @@
 package com.practice.task_scheduler.entities.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -44,10 +45,12 @@ public class UserTaskList {
 
     @JoinColumn(name = "user_id", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private User owner;
 
     @JoinColumn(name = "task_list_id", updatable = false, insertable = false)
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private TaskList taskList;
 
     public enum Role {

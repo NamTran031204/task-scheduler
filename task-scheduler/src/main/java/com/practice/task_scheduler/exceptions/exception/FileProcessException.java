@@ -15,4 +15,9 @@ public class FileProcessException extends RuntimeException {
         super(message);
         this.errorCode = errorCode;
     }
+
+    public FileProcessException(ErrorCode errorCode, String filename, String message) {
+        super(errorCode.getMessage() + " " + filename + ": " + message);
+        this.errorCode = errorCode;
+    }
 }

@@ -11,4 +11,6 @@ public interface CalendarTaskProjection {
     LocalDateTime getDueDate();
     String getColor();
     String getListName();
+    Integer getAssignedUsersCount();
+    Integer getCompletedUsersCount();
 }

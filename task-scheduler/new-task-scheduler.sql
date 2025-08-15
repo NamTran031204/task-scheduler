@@ -59,25 +59,20 @@ CREATE TABLE tasks (
     is_completed BOOLEAN DEFAULT FALSE,
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM',
     due_date DATETIME,
-    completed_at DATETIME,
-
     task_list_id BIGINT NOT NULL,
     created_by BIGINT NOT NULL,
-    assigned_to BIGINT, -- Người được giao việc (trong shared list)
-
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     FOREIGN KEY (task_list_id) REFERENCES task_lists(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
 
     INDEX idx_task_list (task_list_id),
+    INDEX idx_created_by (created_by),
     INDEX idx_due_date (due_date),
     INDEX idx_completed (is_completed),
     INDEX idx_priority (priority),
-    INDEX idx_created_by (created_by),
-    INDEX idx_assigned_to (assigned_to)
+    INDEX idx_created_by_completed (created_by, is_completed)
 );
 
 CREATE TABLE task_recurrences (
@@ -189,4 +184,25 @@ CREATE TABLE notifications (
     INDEX idx_unread (user_id, is_read),
     INDEX idx_type (notification_type),
     INDEX idx_sent (sent_at)
+);
+
+CREATE TABLE user_task_assignments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    assigned_by BIGINT NOT NULL,
+    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('IN_PROGRESS', 'COMPLETED') DEFAULT 'IN_PROGRESS',
+    changed_status DATETIME NULL,
+
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE CASCADE,
+
+    UNIQUE KEY unique_task_user (task_id, user_id),
+    INDEX idx_task (task_id),
+    INDEX idx_user (user_id),
+    INDEX idx_assigned_by (assigned_by),
+    INDEX idx_status (status),
+    INDEX idx_changed_status (changed_status)
 );

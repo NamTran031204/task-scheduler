@@ -22,6 +22,7 @@ public class TaskRecurrenceDTO {
     private TaskRecurrence.RecurrenceType recurrenceType;
 
     @JsonProperty("recurrence_interval")
+    @NonNull
     private Integer recurrenceInterval = 1;
 
     @JsonProperty("recurrence_end_date")

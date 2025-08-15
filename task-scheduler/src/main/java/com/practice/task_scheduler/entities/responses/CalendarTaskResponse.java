@@ -22,4 +22,6 @@ public class CalendarTaskResponse {
     private String listName;
     private String recurringInstanceId;
     private boolean isRecurring;
+    private Integer assignedUsersCount;
+    private Integer completedUsersCount;
 }
