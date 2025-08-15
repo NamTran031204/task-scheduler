@@ -3,6 +3,7 @@ package com.practice.task_scheduler.utils;
 import com.practice.task_scheduler.exceptions.ErrorCode;
 import com.practice.task_scheduler.exceptions.exception.FileProcessException;
 import jakarta.transaction.Transactional;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,12 +15,14 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class StoreFile {
 
     public static final String storePath = "uploads/";
 
-    public static String storeFile(MultipartFile file) throws FileProcessException {
+    @Async("fileAsync")
+    public static CompletableFuture<String> storeFile(MultipartFile file) throws FileProcessException {
         try {
             String fileName = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
 
@@ -34,11 +37,10 @@ public class StoreFile {
             Path destination = Paths.get(path.toString(), uniqueName);
 
             Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
-            return uniqueName;
+            return CompletableFuture.completedFuture(uniqueName);
         }catch (IOException e){
             throw new FileProcessException(ErrorCode.FILE_PROCESS);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new FileProcessException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }

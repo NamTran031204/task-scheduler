@@ -109,7 +109,8 @@ public class UserTaskAssignmentServiceImpl implements UserTaskAssignmentService 
     @Override
     public void deleteAssignedUserTask(long userId, Task task) {
         UserTaskAssignment assignment = userTaskAssignmentRepository.findByTaskIdAndUserId(task.getId(), userId)
-                .orElseThrow(() -> new TaskException(ErrorCode.USERTASK_ASSIGNMENT_NOT_FOUND));
+                .orElse(null);
+        if (assignment == null) return;
         userTaskAssignmentRepository.delete(assignment);
 
         updateTaskCompletionStatusById(task.getId());

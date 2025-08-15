@@ -4,10 +4,7 @@ import com.practice.task_scheduler.entities.dtos.TaskDTO;
 import com.practice.task_scheduler.entities.models.*;
 import com.practice.task_scheduler.entities.responses.TaskResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
-import com.practice.task_scheduler.exceptions.exception.TaskException;
-import com.practice.task_scheduler.exceptions.exception.TaskListException;
-import com.practice.task_scheduler.exceptions.exception.UserRequestException;
-import com.practice.task_scheduler.exceptions.exception.UserTaskListException;
+import com.practice.task_scheduler.exceptions.exception.*;
 import com.practice.task_scheduler.repositories.*;
 import com.practice.task_scheduler.services.*;
 import com.practice.task_scheduler.utils.StoreFile;
@@ -21,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -119,19 +117,25 @@ public class TaskServiceImpl implements TaskService {
                 if (file.getSize() > 0) {
                     StoreFile.checkFile(file);
 
-                    String fileName = StoreFile.storeFile(file);
-                    newValue += fileName + ",";
+                    String fileName = null;
+                    try {
+                        fileName = StoreFile.storeFile(file).get();
+                        newValue += fileName + ",";
 
-                    Attachment fileAttachment = Attachment.builder()
-                            .taskId(task.getId())
-                            .fileName(file.getOriginalFilename())
-                            .filePath(StoreFile.storePath + fileName)
-                            .fileSize(file.getSize())
-                            .fileType(file.getContentType())
-                            .attachmentType(Attachment.AttachmentType.FILE)
-                            .uploadedBy(userId)
-                            .build();
-                    attachmentRepository.save(fileAttachment);
+                        Attachment fileAttachment = Attachment.builder()
+                                .taskId(task.getId())
+                                .fileName(file.getOriginalFilename())
+                                .filePath(StoreFile.storePath + fileName)
+                                .fileSize(file.getSize())
+                                .fileType(file.getContentType())
+                                .attachmentType(Attachment.AttachmentType.FILE)
+                                .uploadedBy(userId)
+                                .build();
+                        attachmentRepository.save(fileAttachment);
+                    } catch (InterruptedException | ExecutionException e) {
+                        Thread.currentThread().interrupt();
+                        throw new FileProcessException(ErrorCode.FILE_UPLOAD_FAILED, file.getName(), e.getMessage());
+                    }
                 }
             }
         }

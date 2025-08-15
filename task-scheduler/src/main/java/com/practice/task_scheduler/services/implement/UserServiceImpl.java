@@ -4,6 +4,7 @@ import com.practice.task_scheduler.entities.dtos.UserDTO;
 import com.practice.task_scheduler.entities.models.User;
 import com.practice.task_scheduler.entities.responses.UserResponse;
 import com.practice.task_scheduler.exceptions.ErrorCode;
+import com.practice.task_scheduler.exceptions.exception.FileProcessException;
 import com.practice.task_scheduler.exceptions.exception.UserRequestException;
 import com.practice.task_scheduler.repositories.UserRepository;
 import com.practice.task_scheduler.services.UserService;
@@ -15,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.concurrent.ExecutionException;
 
 @Service
 @RequiredArgsConstructor
@@ -46,8 +49,7 @@ public class UserServiceImpl implements UserService {
 
         userRepository.save(user);
 
-        UserResponse userResponse = UserResponse.toUser(user);
-        return userResponse;
+        return UserResponse.toUser(user);
     }
 
     @Override
@@ -63,14 +65,19 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public String updateAvatar(Long id, MultipartFile file) throws RuntimeException {
+    public String updateAvatar(Long id, MultipartFile file) throws FileProcessException {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserRequestException(ErrorCode.USER_NOT_FOUND));
         StoreFile.checkImage(file);
 
-        String fileName = StoreFile.storeFile(file);
+        try {
+            String fileName = StoreFile.storeFile(file).get();
 
-        userRepository.updateImageUrl(id, fileName);
+            userRepository.updateImageUrl(id, fileName);
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            throw new FileProcessException(ErrorCode.FILE_UPLOAD_FAILED, file.getName(), e.getMessage());
+        }
 
         return "Update User Avatar Successfully";
     }
@@ -83,7 +90,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Page<UserResponse> getAllUser(PageRequest pageRequest) {
-        return userRepository.findAll(pageRequest).map(user -> UserResponse.toUser(user));
+        return userRepository.findAll(pageRequest).map(UserResponse::toUser);
     }
 
     @Override
@@ -93,12 +100,17 @@ public class UserServiceImpl implements UserService {
         user.setFullName(fullName == null ? user.getFullName() : fullName);
 
         if (avatar != null) {
-            StoreFile.checkImage(avatar);
+            try {
+                StoreFile.checkImage(avatar);
 
-            StoreFile.deleteImage(user.getAvatarUrl());
+                StoreFile.deleteImage(user.getAvatarUrl());
 
-            String avatarPath = StoreFile.storeFile(avatar);
-            user.setAvatarUrl(avatarPath);
+                String avatarPath = StoreFile.storeFile(avatar).get();
+                user.setAvatarUrl(avatarPath);
+            } catch (InterruptedException | ExecutionException e) {
+                Thread.currentThread().interrupt();
+                throw new FileProcessException(ErrorCode.FILE_UPLOAD_FAILED, avatar.getName(), e.getMessage());
+            }
         }
         userRepository.save(user);
     }

@@ -4,6 +4,7 @@ import com.practice.task_scheduler.entities.models.TaskHistory;
 import com.practice.task_scheduler.repositories.TaskHistoryRepository;
 import com.practice.task_scheduler.services.HistoryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +16,7 @@ public class HistoryServiceImpl implements HistoryService {
     private final TaskHistoryRepository taskHistoryRepository;
 
     @Override
+    @Async("historyTaskAsync")
     public void insertHistory(long taskId, long userId, TaskHistory.HistoryAction action, String value, String description) {
         String oldHistory = taskHistoryRepository.findByTaskIdAndUserId(taskId, userId)
                 .orElse(null);

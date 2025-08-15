@@ -42,7 +42,6 @@ public class CalendarServiceImpl implements CalendarService {
         List<Task> recurringTaskForCalendar = loadRecurringTasksWithFullData(userId);
 
         Map<String, List<CalendarTaskResponse>> tasksByDate = new ConcurrentHashMap<>();
-
         singleTasksForCalendar.parallelStream()
                 .filter(task -> task.getDueDate() != null)
                 .forEach(task -> {
