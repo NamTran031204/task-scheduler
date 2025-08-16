@@ -11,12 +11,14 @@ import com.practice.task_scheduler.repositories.UserTaskAssignmentRepository;
 import com.practice.task_scheduler.services.CalendarService;
 import com.practice.task_scheduler.utils.RecurrenceIterator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
@@ -33,15 +35,47 @@ public class CalendarServiceImpl implements CalendarService {
     public CalendarResponse getTasksForCalendar(Long userId, LocalDate startDate, LocalDate endDate) {
 
         // cau hinh multithread
-        List<CalendarTaskProjection> singleTasksForCalendar = taskRepository
+        Map<String, List<CalendarTaskResponse>> tasksByDate = new ConcurrentHashMap<>();
+
+        CompletableFuture<List<CalendarTaskProjection>> singleTasksForCalendar = loadSingleTasksData(userId, startDate, endDate);
+        CompletableFuture<Void> singleProcessFuture = singleTasksForCalendar.thenAccept(singleTasks -> processSingleTasks(singleTasks, tasksByDate));
+
+        CompletableFuture<List<Task>> recurringTaskForCalendar = loadRecurringTasksWithFullData(userId);
+        CompletableFuture<Void> recurringProcessFuture = recurringTaskForCalendar.thenAccept(recurringTasks ->processRecurringTasks(recurringTasks, startDate, endDate, tasksByDate));
+
+        CompletableFuture<Void> allProcessingComplete = CompletableFuture.allOf(
+                singleProcessFuture,
+                recurringProcessFuture
+        );
+
+        CompletableFuture<Void> sort = allProcessingComplete.thenRun( () -> tasksByDate.values().parallelStream().forEach(this::sortTasksInDay));
+
+        return sort.thenApply(v -> CalendarResponse.builder()
+                    .tasksByDate(new TreeMap<>(tasksByDate))
+                    .startDate(startDate)
+                    .endDate(endDate)
+                    .totalTasks(calculateTotalTasks(tasksByDate))
+                    .taskCountsByPriority(calculatePriorityDistribution(tasksByDate))
+                    .build())
+                .join();
+    }
+
+    @Async("calendarTaskAsync")
+    private CompletableFuture<List<CalendarTaskProjection>> loadSingleTasksData(
+            long userId,
+            LocalDate startDate,
+            LocalDate endDate
+    ){
+        return CompletableFuture.completedFuture(taskRepository
                 .findSingleTasksForCalendarWithAssignments(
                         userId,
                         startDate.atStartOfDay(),
-                        endDate.atTime(23,59,59));
+                        endDate.atTime(23,59,59)));
+    }
 
-        List<Task> recurringTaskForCalendar = loadRecurringTasksWithFullData(userId);
-
-        Map<String, List<CalendarTaskResponse>> tasksByDate = new ConcurrentHashMap<>();
+    private void processSingleTasks(
+            List<CalendarTaskProjection> singleTasksForCalendar,
+            Map<String, List<CalendarTaskResponse>> tasksByDate){
         singleTasksForCalendar.parallelStream()
                 .filter(task -> task.getDueDate() != null)
                 .forEach(task -> {
@@ -49,25 +83,14 @@ public class CalendarServiceImpl implements CalendarService {
                     tasksByDate.computeIfAbsent(dateKey, k -> new CopyOnWriteArrayList<>())
                             .add(convertProjectionToObject(task));
                 });
-
-        processRecurringTasks(recurringTaskForCalendar, startDate, endDate, tasksByDate);
-
-        tasksByDate.values().parallelStream().forEach(this::sortTasksInDay);
-
-        return CalendarResponse.builder()
-                .tasksByDate(new TreeMap<>(tasksByDate))
-                .startDate(startDate)
-                .endDate(endDate)
-                .totalTasks(calculateTotalTasks(tasksByDate))
-                .taskCountsByPriority(calculatePriorityDistribution(tasksByDate))
-                .build();
     }
 
-    private List<Task> loadRecurringTasksWithFullData(Long userId) {
+    @Async("calendarTaskAsync")
+    private CompletableFuture<List<Task>> loadRecurringTasksWithFullData(Long userId) {
         List<Task> tasks = taskRepository.findRecurringTasksForUserBasic(userId);
 
         if (tasks.isEmpty()) {
-            return tasks;
+            return CompletableFuture.completedFuture(tasks);
         }
 
         List<Long> taskIds = tasks.stream()
@@ -89,7 +112,7 @@ public class CalendarServiceImpl implements CalendarService {
             task.setUserTaskAssignments(assignmentsByTask.getOrDefault(task.getId(), new ArrayList<>()));
         });
 
-        return tasks;
+        return CompletableFuture.completedFuture(tasks);
     }
 
     private CalendarTaskResponse convertProjectionToObject(CalendarTaskProjection projection){
@@ -131,7 +154,7 @@ public class CalendarServiceImpl implements CalendarService {
                                     .count() : 0;
 
                     LocalDate originalDueDate = task.getDueDate().toLocalDate();
-                    if (!originalDueDate.isBefore(startDate) && !originalDueDate.isAfter(endDate)) {
+                    if (!originalDueDate.isBefore(startDate) && !originalDueDate.isAfter(endDate) && recurrence.getRecurrenceInterval()>0) {
                         String originalDateKey = originalDueDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
                         CalendarTaskResponse originalTask = CalendarTaskResponse.builder()
                                 .id(task.getId())
@@ -152,8 +175,10 @@ public class CalendarServiceImpl implements CalendarService {
                     }
 
                     RecurrenceIterator recurrenceIterator = new RecurrenceIterator(recurrence, startDate, endDate);
-                    while (recurrenceIterator.hasNext()) {
+                    long interval = recurrence.getRecurrenceInterval();
+                    while (recurrenceIterator.hasNext() && interval > 0) {
                         LocalDateTime nextDue = recurrenceIterator.next();
+                        interval--;
 
                         if (nextDue.toLocalDate().equals(originalDueDate)) {
                             continue;
