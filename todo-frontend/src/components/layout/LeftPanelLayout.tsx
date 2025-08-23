@@ -1,5 +1,5 @@
 import { Col, Image } from "antd";
-import loginImage from "../assets/login.svg";
+import loginImage from '../../assets/login.svg';
 import styled from "styled-components";
 
 const ImageCotainer = styled(Image)`

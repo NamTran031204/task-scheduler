@@ -1,12 +1,12 @@
-import React from "react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LOGIN_URL } from "../../constants/routeURL";
-import { Form, Input, Alert, Row, Col, Typography } from "antd";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { DASHBOARD_URL } from "../../constants/routeURL";
+import { Form, Input, Alert, Row, Col, Typography, message } from "antd";
 import Button from "antd/es/button";
 import styled from "styled-components";
-import LeftPanelLayout from "../../components/LeftPanelLayout";
+import LeftPanelLayout from "../../components/layout/LeftPanelLayout";
 import { loginUser } from "../../api/login";
+import { useAuth } from "../../contexts/AuthContext";
 
 const RegisterContainer = styled.div`
   width: 570px;
@@ -48,44 +48,48 @@ const RegisterContainer = styled.div`
   }
 `;
 
-const RegisterButton = styled(Button)`
-  width: 100%;
-  after::click {
-    background-color: #1890ff;
-    color: white;
-    border: none;
-  }
-`;
+// const RegisterButton = styled(Button)`
+//   width: 100%;
+//   after::click {
+//     background-color: #1890ff;
+//     color: white;
+//     border: none;
+//   }
+// `;
 
 export interface LoginInput {
   password: string;
   email: string;
 }
 
-export const useLogin = () => {
-  const [error, setError] = useState<string | null>(null);
+export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [form] = Form.useForm();
+  const { login, isAuthenticated } = useAuth();
 
-  const login = async (userData: LoginInput) => {
-    try {
-      await loginUser(userData);
-      navigate(LOGIN_URL);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Lgin failed. Please try again.");
-      console.error("Login error:", err);
+  // If already authenticated, redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(DASHBOARD_URL);
     }
-  };
+  }, [isAuthenticated, navigate]);
 
-  return { login, error };
-};
-
-const LoginPage: React.FC = () => {
-  const [form] = Form.useForm<LoginInput>();
-  const { login, error } = useLogin();
-
-  const onFinish = (values: LoginInput) => {
-    login(values);
-    form.resetFields();
+  const onFinish = async (values: LoginInput) => {
+    try {
+      setLoading(true);
+      setError("");
+      const response = await loginUser(values);
+      login(response.token, response.userId);
+      message.success('Login successful!');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to login. Please check your credentials.';
+      setError(errorMessage);
+      message.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -94,7 +98,8 @@ const LoginPage: React.FC = () => {
         <LeftPanelLayout />
         <Col span={12}>
           <RegisterContainer>
-            <h1>Welcome to <br></br>Task Scheduler</h1>
+            <h1>Welcome to <br></br>Task Scheduler😘</h1>
+            <h5 style={{marginTop: '-20px', color:"gray"}}>Login to continue!</h5>
             {error && <Alert message={error} type="error" style={{ marginBottom: 10 }} />}
             <Form<LoginInput> form={form} onFinish={onFinish} className="login-form"
             >
@@ -111,7 +116,7 @@ const LoginPage: React.FC = () => {
                 <Input placeholder="Email" />
               </Form.Item>
               <Typography>
-                Passsword:
+                Password:
               </Typography>
               <Form.Item
                 name="password"
@@ -119,10 +124,14 @@ const LoginPage: React.FC = () => {
               >
                 <Input.Password placeholder="Password" />
               </Form.Item>
-              <RegisterButton type="primary" htmlType="submit">
-                Login
-              </RegisterButton>
-              <p style={{ marginTop: 0, textAlign: "right", justifyContent: "flex-end" }}>Don't have an account? <a href="/register">Register</a></p>
+              <Form.Item>
+                <Button type="primary" htmlType="submit" loading={loading} block>
+                  Login
+                </Button>
+              </Form.Item>
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                Don't have an account? <Link to="/register">Register</Link>
+              </div>
             </Form>
           </RegisterContainer>
         </Col>

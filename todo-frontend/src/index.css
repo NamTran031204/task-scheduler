@@ -49,6 +49,13 @@ button {
 button:hover {
   border-color: #646cff;
 }
+
+/* Task list item hover effect */
+.task-list-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;

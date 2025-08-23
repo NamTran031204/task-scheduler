@@ -1,11 +1,12 @@
 import { registerUser } from "../../api/register";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LOGIN_URL } from "../../constants/routeURL";
-import { Form, Input, Alert, Row, Col, Typography } from "antd";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { LOGIN_URL, DASHBOARD_URL } from "../../constants/routeURL";
+import { Form, Input, Alert, Row, Col, Typography, message } from "antd";
 import Button from "antd/es/button";
 import styled from "styled-components";
-import LeftPanelLayout from "../../components/LeftPanelLayout";
+import LeftPanelLayout from "../../components/layout/LeftPanelLayout";
+import { useAuth } from "../../contexts/AuthContext";
 
 const RegisterContainer = styled.div`
   width: 570px;
@@ -23,10 +24,10 @@ const RegisterContainer = styled.div`
     height: 90%;
   }
   @media (max-width: 560px) {
-      padding-left: 0px;
-      width: 100%;
-      height: 100%;
-      margin-left: -200px;
+    padding-left: 0px;
+    width: 100%;
+    height: 100%;
+    margin-left: -200px;
   }
 
   .register-form {
@@ -45,10 +46,6 @@ const RegisterContainer = styled.div`
   }
 `;
 
-const RegisterButton = styled(Button)`
-  width: 100%;
-`;
-
 export interface RegisterInput {
   username: string;
   password: string;
@@ -56,39 +53,46 @@ export interface RegisterInput {
   fullName: string;
 }
 
-// export interface RegisterResponse{
-//   id: number;
-//   username: string;
-//   email: string;
-//   fullName: string;
-//   createAt: string;
-//   updatedAt: string;
-// }
-
 export const useRegister = () => {
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const register = async (userData: RegisterInput) => {
     try {
+      setLoading(true);
+      setError(null);
       await registerUser(userData);
+      message.success('Registration successful! Please log in.');
       navigate(LOGIN_URL);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed. Please try again.");
+      const errorMsg = err.response?.data?.message || "Registration failed. Please try again.";
+      setError(errorMsg);
+      message.error(errorMsg);
       console.error("Registration error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return { register, error };
+  return { register, error, loading };
 };
 
 const RegisterPage: React.FC = () => {
   const [form] = Form.useForm<RegisterInput>();
-  const { register, error } = useRegister();
+  const { register, error, loading } = useRegister();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(DASHBOARD_URL);
+    }
+  }, [isAuthenticated, navigate]);
 
   const onFinish = (values: RegisterInput) => {
     register(values);
-    form.resetFields();
   };
 
   return (
@@ -97,10 +101,10 @@ const RegisterPage: React.FC = () => {
         <LeftPanelLayout />
         <Col span={12}>
           <RegisterContainer>
-            <h1>Welcome to <br></br>Task Scheduler</h1>
+            <h1>Welcome to <br />Task Scheduler🤗</h1>
+            <h5 style={{marginTop: '-20px', color:"gray"}}>Register an account to use our Website!</h5>
             {error && <Alert message={error} type="error" style={{ marginBottom: 10 }} />}
-            <Form<RegisterInput> form={form} onFinish={onFinish} className="register-form"
-            >
+            <Form<RegisterInput> form={form} onFinish={onFinish} className="register-form">
               <Typography>
                 User name:
               </Typography>
@@ -108,7 +112,7 @@ const RegisterPage: React.FC = () => {
                 name="username"
                 rules={[{ required: true, message: "Please input your username!" }]}
               >
-                <Input placeholder="Username" />
+                <Input placeholder="Username" disabled={loading} />
               </Form.Item>
               <Typography>
                 Password:
@@ -117,7 +121,7 @@ const RegisterPage: React.FC = () => {
                 name="password"
                 rules={[{ required: true, message: "Please input your password!" }]}
               >
-                <Input.Password placeholder="Password" />
+                <Input.Password placeholder="Password" disabled={loading} />
               </Form.Item>
               <Typography>
                 Email:
@@ -129,7 +133,7 @@ const RegisterPage: React.FC = () => {
                   { type: "email", message: "Please enter a valid email!" },
                 ]}
               >
-                <Input placeholder="Email" />
+                <Input placeholder="Email" disabled={loading} />
               </Form.Item>
               <Typography>
                 Full name:
@@ -138,14 +142,19 @@ const RegisterPage: React.FC = () => {
                 name="fullName"
                 rules={[{ required: false, message: "Please input your full name!" }]}
               >
-                <Input placeholder="Full Name" />
+                <Input placeholder="Full Name" disabled={loading} />
               </Form.Item>
-              <RegisterButton type="primary" htmlType="submit">
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading}
+                style={{ width: '100%' }}
+              >
                 Register
-              </RegisterButton>
-              <p style={{ marginTop: 0, textAlign: "right", justifyContent: "flex-end" }}>
-                Already have an account? <a href="/login">Login</a>
-              </p>
+              </Button>
+              <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                Already have an account? <Link to="/login">Login</Link>
+              </div>
             </Form>
           </RegisterContainer>
         </Col>

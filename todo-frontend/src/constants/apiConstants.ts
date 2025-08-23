@@ -1,2 +1,12 @@
 export const LOGIN_API = '/user/login';
 export const REGISTER_API = '/user/register';
+export const GET_USER_API = '/user'; 
+export const GET_ALL_USERS_API = '/users';
+export const UPDATE_USER_API = '/user/update';
+export const UPDATE_AVATAR_API = '/user/avatar';
+export const CREATE_TASK_API = '/task/create';
+export const GET_TASK_API = '/task';
+export const GET_ALL_TASKS_API = '/tasks';
+export const UPDATE_TASK_API = '/task/update';
+export const DELETE_TASK_API = '/task/user/{userId}/delete/{id}';
+export const DELETE_USER_API = '/user/delete/{id}';
