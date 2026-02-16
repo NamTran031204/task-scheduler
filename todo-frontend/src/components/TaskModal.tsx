@@ -1,6 +1,5 @@
 import React from 'react';
 import { Modal, Form, Input, Select, DatePicker, Button, Tabs, Spin } from 'antd';
-import type { FC } from 'react';
 import { lazy, Suspense } from 'react';
 
 const TaskHistory = lazy(() => import('./TaskList/TaskHistory'));
@@ -16,7 +15,7 @@ interface TaskModalProps {
 
 const { Option } = Select;
 
-const TaskModal: FC<TaskModalProps> = ({ open, onOk, onCancel, initialValues = {}, mode = 'create' }) => {
+const TaskModal = ({ open, onOk, onCancel, initialValues = {}, mode = 'create' }: TaskModalProps) => {
   const [form] = Form.useForm();
 
   React.useEffect(() => {

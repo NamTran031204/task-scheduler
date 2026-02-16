@@ -60,11 +60,7 @@ const AppRoutes = () => (
         <Dashboard />
       </ProtectedRoute>
     } />
-    <Route path="/profile" element={
-      <ProtectedRoute>
-        <UserProfile />
-      </ProtectedRoute>
-    } />
+    <Route path="/profile" element={<UserProfile />} />
   </Routes>
 );
 

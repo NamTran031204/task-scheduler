@@ -11,13 +11,13 @@ export const createTaskList = async (userId: number, data: any) => {
   return res.data;
 };
 
-export const updateTaskList = async (taskListId: number, data: any) => {
-  const res = await axios.put(`${URL}/task-list/update/${taskListId}`, data);
+export const updateTaskList = async (taskListId: number, userId: number, data: any) => {
+  const res = await axios.put(`${URL}/task-list/update/${taskListId}/user/${userId}`, data);
   return res.data;
 };
 
-export const deleteTaskList = async (taskListId: number) => {
-  const res = await axios.delete(`${URL}/task-list/delete/${taskListId}`);
+export const deleteTaskList = async (taskListId: number, userId: number) => {
+  const res = await axios.delete(`${URL}/task-list/delete/${taskListId}/user/${userId}`);
   return res.data;
 };
 
@@ -26,38 +26,54 @@ export const getTaskListById = async (taskListId: number) => {
   return res.data;
 };
 
-// Chia sẻ Task List cho user khác
-export const shareTaskList = async (taskListId: number, email: string) => {
-  const res = await axios.post(`${URL}/task-list/share`, { taskListId, email });
+// Chia sẻ task list cho user khác (theo userId)
+export const shareTaskList = async (taskListId: number, userId: number) => {
+  const res = await axios.put(`${URL}/task-list/share/${taskListId}/user/${userId}`);
   return res.data;
 };
 
-// Tham gia Task List bằng code
-export const joinTaskList = async (code: string) => {
-  const res = await axios.post(`${URL}/task-list/join`, { code });
+// Tham gia task list bằng code
+export const joinTaskList = async (code: string, userId: number) => {
+  const res = await axios.post(`${URL}/task-list/join/${code}/user/${userId}`);
   return res.data;
 };
 
-// Rời khỏi Task List
-export const leaveTaskList = async (taskListId: number) => {
-  const res = await axios.post(`${URL}/task-list/leave`, { taskListId });
+// Rời khỏi task list
+export const leaveTaskList = async (taskListId: number, userId: number) => {
+  const res = await axios.put(`${URL}/task-list/user/${userId}/leave/taskList/${taskListId}`);
   return res.data;
 };
 
-// Lấy danh sách thành viên của Task List
+// Lấy danh sách thành viên của task list
 export const getTaskListMembers = async (taskListId: number) => {
-  const res = await axios.get(`${URL}/task-list/${taskListId}/members`);
+  const res = await axios.get(`${URL}/task-list/get-member/taskList/${taskListId}`);
   return res.data;
 };
 
-// Xóa thành viên khỏi Task List
-export const removeTaskListMember = async (taskListId: number, userId: number) => {
-  const res = await axios.delete(`${URL}/task-list/${taskListId}/member/${userId}`);
+// Xóa thành viên khỏi task list
+export const removeTaskListMember = async (
+  taskListId: number,
+  userId: number,
+  byUserId: number
+) => {
+  const res = await axios.delete(
+    `${URL}/task-list/delete/user/${userId}/inTaskList/${taskListId}/byUser/${byUserId}`
+  );
   return res.data;
 };
 
-// Chuyển quyền host cho thành viên khác
-export const transferTaskListHost = async (taskListId: number, newHostId: number) => {
-  const res = await axios.patch(`${URL}/task-list/${taskListId}/transfer-host`, { newHostId });
+// Thay đổi vai trò thành viên
+export const updateTaskListMemberRole = async (
+  taskListId: number,
+  userId: number,
+  byUserId: number,
+  role: 'HOST' | 'MEMBER'
+) => {
+  const formData = new FormData();
+  formData.append('role', role);
+  const res = await axios.put(
+    `${URL}/task-list/authority/user/${userId}/inTaskList/${taskListId}/byUser/${byUserId}/role`,
+    formData
+  );
   return res.data;
 };

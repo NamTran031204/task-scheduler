@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { createTask, updateTask, deleteTask, getTasksByTaskList } from '../../api/task';
 import { createTaskList, getTaskListsByUser } from '../../api/taskList';
-import DashboardLayout from '.';
+import DashboardLayout from './DashboardLayout';
 import type { Task, TaskList as TaskListType } from '../../types/task';
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
   const userId = Number(localStorage.getItem('userId'));
 
   const [collapsed, setCollapsed] = useState(false);
@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
         message.success('Task list created successfully');
       } else if (editingTaskList) {
         const { updateTaskList } = await import('../../api/taskList');
-        await updateTaskList(editingTaskList.id, values);
+        await updateTaskList(editingTaskList.id, userId, values);
         message.success('Task list updated successfully');
       }
       refreshTaskLists();

@@ -151,7 +151,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <Calendar
             value={selectedDate}
             onPanelChange={(date) => setSelectedDate(date)}
-            dateCellRender={dateCellRender}
+            cellRender={dateCellRender}
             locale={viVN}
             style={{ 
               background: '#fff', 

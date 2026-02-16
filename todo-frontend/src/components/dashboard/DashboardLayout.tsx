@@ -19,14 +19,9 @@ import MemberManagement from "../user/MemberManagement"
 import NotesPage from '../../pages/NotesPage';
 import TeamsPage from '../../pages/TeamsPage';
 import IntegrationsPage from '../../pages/IntegrationsPage';
+import RemindersPage from '../../pages/RemindersPage';
 import CalendarView from '../CalendarView';
-
-type CustomMenuItem = {
-  key: string;
-  icon: React.ReactNode;
-  label: string;
-  component: React.ReactNode;
-};
+import type { Task, TaskList } from '../../types/task';
 import { 
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -38,19 +33,62 @@ import {
   SettingOutlined,
   LogoutOutlined,
   TeamOutlined,
+  NotificationOutlined,
   // FileTextOutlined,
   CommentOutlined,
   FormatPainterOutlined,
 } from '@ant-design/icons';
 
+type CustomMenuItem = {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  component: React.ReactNode;
+};
+
 const { Header, Sider, Content } = Layout;
 const { Title, } = Typography;
 
-const DashboardLayout: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(false);
+interface DashboardLayoutProps {
+  collapsed: boolean;
+  onCollapse: (collapsed: boolean) => void;
+  taskLists: TaskList[];
+  selectedListId: number | null;
+  onSelectList: React.Dispatch<React.SetStateAction<number | null>>;
+  onAddTaskList: () => void;
+  tasks: Task[];
+  onAddTask: () => void;
+  onEditTask: (task: Task) => void;
+  onDeleteTask: (taskId: number) => void;
+  onToggleComplete: (task: Task) => void;
+  onShowDetail: (taskId: number) => void;
+  showCalendar: boolean;
+  onToggleView: () => void;
+  taskModalOpen: boolean;
+  onTaskModalOk: (values: any) => void;
+  onTaskModalCancel: () => void;
+  taskModalMode: 'create' | 'edit';
+  editingTask: Task | null;
+  taskListModalOpen: boolean;
+  onTaskListModalOk: (values: any) => void;
+  onTaskListModalCancel: () => void;
+  memberModalOpen: boolean;
+  onMemberModalClose: () => void;
+  memberModalTaskListId: number | null;
+  currentUserId: number;
+}
+
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({
+  collapsed,
+  onCollapse,
+  selectedListId,
+  memberModalTaskListId,
+  currentUserId,
+}) => {
   const { token } = theme.useToken();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const taskListId = memberModalTaskListId ?? selectedListId ?? 0;
   
   const getSelectedKey = () => {
     const path = location.pathname;
@@ -68,7 +106,7 @@ const DashboardLayout: React.FC = () => {
       key: 'dashboard',
       icon: <ProjectOutlined style={{ fontSize: '18px' }} />,
       label: 'Dashboard',
-      component: <MemberManagement />
+      component: <MemberManagement taskListId={taskListId} currentUserId={currentUserId} />
     },
     {
       key: 'calendar',
@@ -77,8 +115,7 @@ const DashboardLayout: React.FC = () => {
       component: <CalendarView 
         tasks={[]} 
         onShowDetail={() => {}} 
-        onAddTask={() => {}} 
-        onDateSelect={() => {}} 
+        onAddTask={async () => {}} 
       />
     },
     {
@@ -86,6 +123,12 @@ const DashboardLayout: React.FC = () => {
       icon: <CommentOutlined style={{ fontSize: '18px' }} />,
       label: 'My Notes',
       component: <NotesPage />
+    },
+    {
+      key: 'reminders',
+      icon: <NotificationOutlined style={{ fontSize: '18px' }} />,
+      label: 'Reminders',
+      component: <RemindersPage userId={currentUserId} />
     },
     {
       key: 'teams',
@@ -101,7 +144,7 @@ const DashboardLayout: React.FC = () => {
     },
   ];
 
-  const [selectedComponent, setSelectedComponent] = useState<React.ReactNode>(
+  const [selectedComponent, setSelectedComponent] = useState(
     customMenuItems[0].component
   );
 
@@ -116,41 +159,36 @@ const DashboardLayout: React.FC = () => {
   }));
 
   const handleMenuClick: MenuProps['onClick'] = (e) => {
-    if (e.key === '1') {
+    if (e.key === 'hoso') {
       navigate('/profile');
-    } else if (e.key === '3') {
+    } else if (e.key === 'dangxuat') {
       logout();
       message.success('Đăng xuất thành công');
     }
   };
 
-  const userMenu = (
-    <Menu
-      onClick={handleMenuClick}
-      items={[
-        {
-          key: '1',
-          label: 'Hồ sơ',
-          icon: <UserOutlined />,
-        },
-        {
-          key: '2',
-          label: 'Cài đặt',
-          icon: <SettingOutlined />,
-          disabled: true,
-        },
-        {
-          type: 'divider',
-        },
-        {
-          key: '3',
-          label: 'Đăng xuất',
-          icon: <LogoutOutlined />,
-          danger: true,
-        },
-      ]}
-    />
-  );
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'hoso',
+      label: 'Hồ sơ',
+      icon: <UserOutlined />,
+    },
+    {
+      key: 'caidat',
+      label: 'Cài đặt',
+      icon: <SettingOutlined />,
+      // disabled: true,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'dangxuat',
+      label: 'Đăng xuất',
+      icon: <LogoutOutlined />,
+      // danger: true,
+    },
+  ];
 
   
 
@@ -215,7 +253,7 @@ const DashboardLayout: React.FC = () => {
           borderTop: `1px solid ${token.colorBorderSecondary}`,
           background: token.colorBgElevated
         }}>
-          <Dropdown overlay={userMenu} placement="topRight" trigger={['click']}>
+          <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="topRight" trigger={['click']}>
             
           </Dropdown>
         </div>
@@ -228,18 +266,18 @@ const DashboardLayout: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.1)'
+          
         }}>
           <Space size="middle">
             {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
               style: { fontSize: '18px', cursor: 'pointer' },
-              onClick: () => setCollapsed(!collapsed),
+              onClick: () => onCollapse(!collapsed),
             })}
             <Input
               placeholder="Search..."
               prefix={<SearchOutlined style={{ color: token.colorTextPlaceholder }} />}
               style={{ width: 200, borderRadius: '20px' }}
-              bordered={false}
+              variant={'borderless'}
             />
           </Space>
           <Space size="large">
@@ -250,7 +288,7 @@ const DashboardLayout: React.FC = () => {
                 icon={<BellOutlined style={{ fontSize: '18px' }} />} 
               />
             </Badge>
-            <Dropdown overlay={userMenu} trigger={['click']}>
+            <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} trigger={['click']}>
               <Avatar 
                 size={36} 
                 icon={<UserOutlined />} 

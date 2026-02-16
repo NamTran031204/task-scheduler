@@ -81,7 +81,9 @@ export const LoginPage: React.FC = () => {
       setLoading(true);
       setError("");
       const response = await loginUser(values);
-      login(response.token, response.userId);
+console.log('login response', response);
+
+      login(response.accessToken, String(response.userId));
       message.success('Login successful!');
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Failed to login. Please check your credentials.';
