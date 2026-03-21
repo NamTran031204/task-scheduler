@@ -1,10 +1,10 @@
-## Task-Scheduler
+# Task-Scheduler
 
-# Frontend 
-# Techstacks:
+## Frontend 
+### Techstacks:
 ReactJs
 Antd
-# Run frontend:
+### Run frontend:
 cd todo-frontend       
 npm install  
 npm run dev
