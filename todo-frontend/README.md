@@ -1,7 +1,7 @@
-# Techstack
+# Techstacks
 ReactJs
 Antd
-# run frontend
+# Run frontend
 cd todo-frontend       
 npm install  
 npm run dev
