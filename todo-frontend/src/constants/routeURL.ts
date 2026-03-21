@@ -4,5 +4,5 @@ export const REGISTER_URL = '/register';
 export const DASHBOARD_URL = '/dashboard';
 export const PROFILE_URL = '/profile';
 
-export const URL = 'http://localhost:8088/api/v1';
-export const URL_PORT = 'http://localhost:8088';
+export const URL = import.meta.env.VITE_URL;
+export const URL_PORT = import.meta.env.VITE_URL_PORT;
