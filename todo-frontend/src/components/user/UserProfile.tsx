@@ -10,10 +10,13 @@ import {
 } from '../../api/user';
 import type { UserResponse } from '../../api/user';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Page = styled.div`
   min-height: 100vh;
-  padding: 40px 200px 64px;
+  margin: 0px 500px 0px 500px;;
+  /* padding: 0px 50px 64px 50px; */
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -24,8 +27,8 @@ const Page = styled.div`
 
 const ProfileCard = styled(Card)`
   width: 100%;
-  max-width: 980px;
-  border-radius: 24px;
+  /* max-width: 980px; */
+  /* border-radius: 24px; */
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
   /* border: 1px solid rgba(148, 163, 184, 0.2); */
 
@@ -36,7 +39,7 @@ const ProfileCard = styled(Card)`
   }
 
   .ant-card-head-title {
-    padding: 18px 24px;
+    /* padding: 18px 24px; */
   }
 
   .ant-card-body {
@@ -115,7 +118,7 @@ const ActionsRow = styled.div`
 `;
 
 const DangerZone = styled.div`
-  margin-top: 26px;
+  /* margin-top: 26px; */
   padding-top: 20px;
   /* border-top: 1px solid rgba(148, 163, 184, 0.2); */
   display: flex;
@@ -143,11 +146,10 @@ const UserProfile = () => {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [user, setUser] = useState<UserResponse | null>(null);
   const navigate = useNavigate();
-
-  const userId = Number(localStorage.getItem('userId'));
+  const { userId } = useAuth();
 
   useEffect(() => {
-    if (!userId) {
+    if (userId == null) {
       return;
     }
     (async () => {
@@ -167,7 +169,7 @@ const UserProfile = () => {
 
   const onFinish = async (values: any) => {
     try {
-      if (!userId) {
+      if (userId == null) {
         return;
       }
       setLoading(true);
@@ -184,7 +186,7 @@ const UserProfile = () => {
 
   const beforeUpload = async (file: File) => {
     try {
-      if (!userId) {
+      if (userId == null) {
         message.error('Cần đăng nhập');
         return false;
       }
@@ -204,7 +206,7 @@ const UserProfile = () => {
 
   const handleDelete = async () => {
     try {
-      if (!userId) {
+      if (userId == null) {
         message.error('Chưa đăng nhập');
         return;
       }
@@ -212,7 +214,7 @@ const UserProfile = () => {
       await deleteUser(userId);
       message.success('Đã xóa tài khoản');
       localStorage.removeItem('userId');
-      navigate('/register');
+      navigate('/login');
       setErrorText(null);
     } catch (err) {
       message.error('Xóa thất bại');

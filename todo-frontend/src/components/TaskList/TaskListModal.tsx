@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Form, Input, Button } from 'antd';
+import { Modal, Form, Input } from 'antd';
 
 interface TaskListModalProps {
   open: boolean;
@@ -40,9 +40,9 @@ const TaskListModal: React.FC<TaskListModalProps> = ({ open, onOk, onCancel, ini
           <Input type="color" style={{ width: 40, padding: 0, border: 'none', background: 'none' }} />
         </Form.Item>
         <Form.Item>
-          <Button type="primary" htmlType="submit" block>
+          {/* <Button type="primary" htmlType="submit" block>
             {mode === 'create' ? 'Thêm danh sách' : 'Lưu thay đổi'}
-          </Button>
+          </Button> */}
         </Form.Item>
       </Form>
     </Modal>

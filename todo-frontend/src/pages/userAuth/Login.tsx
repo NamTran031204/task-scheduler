@@ -7,6 +7,8 @@ import styled from "styled-components";
 import LeftPanelLayout from "../../components/layout/LeftPanelLayout";
 import { loginUser } from "../../api/login";
 import { useAuth } from "../../contexts/AuthContext";
+import { extractLoginResult, getLegacyLoginSuccessPayload, SESSION_NO_JWT } from "../../utils/userId";
+import { findUserIdByEmail } from "../../api/user";
 
 const RegisterContainer = styled.div`
   width: 570px;
@@ -81,9 +83,20 @@ export const LoginPage: React.FC = () => {
       setLoading(true);
       setError("");
       const response = await loginUser(values);
-console.log('login response', response);
-
-      login(response.accessToken, String(response.userId));
+      let parsed = extractLoginResult(response);
+      if (!parsed && getLegacyLoginSuccessPayload(response) != null) {
+        const id = await findUserIdByEmail(values.email);
+        if (id != null) {
+          parsed = { token: SESSION_NO_JWT, userId: id };
+        }
+      }
+      if (!parsed) {
+        const msg = 'Đăng nhập không thành công. Kiểm tra email và mật khẩu.';
+        setError(msg);
+        message.error(msg);
+        return;
+      }
+      login(parsed.token, String(parsed.userId));
       message.success('Login successful!');
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Failed to login. Please check your credentials.';

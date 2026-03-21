@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Tag, Descriptions, Spin, message } from 'antd';
 import AttachmentSection from '../AttachmentSection';
 import ReminderSection from '../ReminderSection';
-import { getTaskById } from '../../api/task'; 
+import { getTaskById, getTaskRecurrence } from '../../api/task';
 
 interface TaskDetailModalProps {
   open: boolean;
@@ -14,13 +14,21 @@ interface TaskDetailModalProps {
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ open, taskId, onCancel, userId }) => {
   const [task, setTask] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [recurrence, setRecurrence] = useState<any>(null);
 
   useEffect(() => {
     if (open && taskId) {
       setLoading(true);
-      getTaskById(userId, taskId)
-        .then(setTask)
-        .catch(() => message.error('Không lấy được chi tiết task'))
+      setRecurrence(null);
+      Promise.all([
+        getTaskById(userId, taskId).catch(() => null),
+        getTaskRecurrence(taskId).catch(() => null),
+      ])
+        .then(([t, r]) => {
+          if (t) setTask(t);
+          else message.error('Không lấy được chi tiết task');
+          setRecurrence(r && typeof r === 'object' && 'content' in r ? (r as any).content : r);
+        })
         .finally(() => setLoading(false));
     }
   }, [open, taskId, userId]);
@@ -37,6 +45,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ open, taskId, onCance
             </Descriptions.Item>
             <Descriptions.Item label="Hạn chót">{task.dueDate ? new Date(task.dueDate).toLocaleString() : 'Không có'}</Descriptions.Item>
             <Descriptions.Item label="Trạng thái">{task.isCompleted ? 'Đã hoàn thành' : 'Chưa hoàn thành'}</Descriptions.Item>
+            <Descriptions.Item label="Lặp lại">
+              {recurrence?.type ?? recurrence?.recurrenceType ?? '—'}
+            </Descriptions.Item>
           </Descriptions>
         ) : null}
       </Spin>

@@ -14,14 +14,9 @@ const ImageCotainer = styled(Image)`
 }`
 
 export default function LeftPanelLayout() {
-    return (
-        <Col span={12} style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <ImageCotainer
-            width={750}
-            height={500}
-            preview={false}
-            src={loginImage}
-          />
-        </Col>
-    )
+  return (
+    <Col span={12} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <ImageCotainer width={750} height={500} preview={false} src={loginImage} />
+    </Col>
+  );
 }
