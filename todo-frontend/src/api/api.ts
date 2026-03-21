@@ -2,7 +2,7 @@ import axios from 'axios';
 import { SESSION_NO_JWT } from '../utils/userId';
 
 const api = axios.create({
-  baseURL: import.meta.env.URL || 'http://localhost:8088/api/v1',
+  baseURL: import.meta.env.VITE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
