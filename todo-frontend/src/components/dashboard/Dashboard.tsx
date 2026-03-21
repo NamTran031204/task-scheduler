@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { message, Alert } from 'antd';
 import dayjs from 'dayjs';
@@ -28,6 +28,7 @@ import {
   closeDetailModal,
   openTaskListDetail,
   closeTaskListDetail,
+  type DashboardState,
 } from '../../store/dashboardSlice';
 
 const Dashboard = () => {
@@ -54,7 +55,7 @@ const Dashboard = () => {
     detailTaskId,
     taskListDetailOpen,
     taskListDetailId,
-  } = useAppSelector((state) => state.dashboard);
+  } = useAppSelector((state: { dashboard: DashboardState }) => state.dashboard);
 
   useEffect(() => {
     if (userId != null) {
@@ -77,17 +78,17 @@ const Dashboard = () => {
     };
   }, [dispatch]);
 
-  const refreshTasksCurrent = () => {
+  const refreshTasksCurrent = useCallback(() => {
     if (userId != null) {
       dispatch(fetchTasks({ userId, listId: selectedListId, taskLists }));
     }
-  };
+  }, [userId, selectedListId, taskLists, dispatch]);
 
-  const refreshAllTasks = () => {
+  const refreshAllTasks = useCallback(() => {
     if (userId != null) {
       dispatch(fetchTasks({ userId, listId: null, taskLists }));
     }
-  };
+  }, [userId, taskLists, dispatch]);
 
   const handleToggleComplete = async (task: Task) => {
     if (userId == null) return;
@@ -213,16 +214,18 @@ const Dashboard = () => {
     }
   };
 
-  const taskModalInitialValues =
+  const taskModalInitialValues = useMemo(() =>
     editingTask && taskModalMode === 'edit'
       ? {
           ...editingTask,
           due_date: editingTask.dueDate ? dayjs(editingTask.dueDate) : undefined,
           recurrence: editingTask.recurrence ?? 'NONE',
         }
-      : {};
+      : {},
+    [editingTask, taskModalMode]
+  );
 
-  const taskListModalInitialValues =
+  const taskListModalInitialValues = useMemo(() =>
     editingTaskList && taskListModalMode === 'edit'
       ? {
           name: editingTaskList.name,
@@ -230,7 +233,9 @@ const Dashboard = () => {
             .description,
           color: editingTaskList.color || '#1890ff',
         }
-      : { color: '#1890ff' };
+      : { color: '#1890ff' },
+    [editingTaskList, taskListModalMode]
+  );
 
   if (userId == null) {
     return (
