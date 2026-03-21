@@ -71,7 +71,7 @@ function buildTaskListPayload(values: any) {
 
 export const fetchTaskLists = createAsyncThunk(
   'dashboard/fetchTaskLists',
-  async (userId: number, { rejectWithValue }) => {
+  async (userId: number, { rejectWithValue }: { rejectWithValue: (value: any) => any }) => {
     try {
       const data = await getTaskListsByUser(userId);
       return data.content || [];
@@ -86,7 +86,7 @@ export const fetchTasks = createAsyncThunk(
   'dashboard/fetchTasks',
   async (
     { userId, listId, taskLists }: { userId: number; listId: number | null; taskLists: TaskList[] },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       if (listId) {
@@ -110,7 +110,7 @@ export const deleteTaskListThunk = createAsyncThunk(
   'dashboard/deleteTaskList',
   async (
     { userId, taskListId, selectedListId }: { userId: number; taskListId: number; selectedListId: number | null },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       await deleteTaskList(taskListId, userId);
@@ -137,7 +137,7 @@ export const saveTaskListThunk = createAsyncThunk(
       mode: 'create' | 'edit';
       editingTaskList: TaskList | null;
     },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       const payload = buildTaskListPayload(values);
@@ -165,7 +165,7 @@ export const saveTaskListThunk = createAsyncThunk(
 
 export const deleteTaskThunk = createAsyncThunk(
   'dashboard/deleteTask',
-  async ({ userId, taskId }: { userId: number; taskId: number }, { rejectWithValue }) => {
+  async ({ userId, taskId }: { userId: number; taskId: number }, { rejectWithValue }: { rejectWithValue: (value: any) => any }) => {
     try {
       await deleteTask(userId, taskId);
       message.success('Task deleted successfully');
@@ -181,7 +181,7 @@ export const toggleCompleteThunk = createAsyncThunk(
   'dashboard/toggleComplete',
   async (
     { userId, task }: { userId: number; task: Task },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       if (task.isCompleted) {
@@ -215,7 +215,7 @@ export const saveTaskThunk = createAsyncThunk(
       mode: 'create' | 'edit';
       editingTask: Task | null;
     },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       const { recurrence, ...formFields } = values;
@@ -269,7 +269,7 @@ export const calendarAddTaskThunk = createAsyncThunk(
       selectedListId: number | null;
       taskLists: TaskList[];
     },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       const listId = selectedListId ?? taskLists[0]?.id;
@@ -310,7 +310,7 @@ export const calendarUpdateTaskThunk = createAsyncThunk(
       task: Task;
       selectedListId: number | null;
     },
-    { rejectWithValue }
+    { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
       const listId = pickTaskListId(task as unknown as Record<string, unknown>, selectedListId);
@@ -341,16 +341,16 @@ const dashboardSlice = createSlice({
   name: 'dashboard',
   initialState,
   reducers: {
-    setCollapsed: (state, action: PayloadAction<boolean>) => {
+    setCollapsed: (state: DashboardState, action: PayloadAction<boolean>) => {
       state.collapsed = action.payload;
     },
-    setSelectedListId: (state, action: PayloadAction<number | null>) => {
+    setSelectedListId: (state: DashboardState, action: PayloadAction<number | null>) => {
       state.selectedListId = action.payload;
     },
-    toggleShowCalendar: (state) => {
+    toggleShowCalendar: (state: DashboardState) => {
       state.showCalendar = !state.showCalendar;
     },
-    openTaskModal: (state, action: PayloadAction<'create' | { mode: 'edit'; task: Task }>) => {
+    openTaskModal: (state: DashboardState, action: PayloadAction<'create' | { mode: 'edit'; task: Task }>) => {
       state.taskModalOpen = true;
       if (action.payload === 'create') {
         state.taskModalMode = 'create';
@@ -360,11 +360,11 @@ const dashboardSlice = createSlice({
         state.editingTask = action.payload.task;
       }
     },
-    closeTaskModal: (state) => {
+    closeTaskModal: (state: DashboardState) => {
       state.taskModalOpen = false;
       state.editingTask = null;
     },
-    openTaskListModal: (state, action: PayloadAction<'create' | { mode: 'edit'; list: TaskList }>) => {
+    openTaskListModal: (state: DashboardState, action: PayloadAction<'create' | { mode: 'edit'; list: TaskList }>) => {
       state.taskListModalOpen = true;
       if (action.payload === 'create') {
         state.taskListModalMode = 'create';
@@ -374,70 +374,70 @@ const dashboardSlice = createSlice({
         state.editingTaskList = action.payload.list;
       }
     },
-    closeTaskListModal: (state) => {
+    closeTaskListModal: (state: DashboardState) => {
       state.taskListModalOpen = false;
       state.editingTaskList = null;
     },
-    openMemberModal: (state, action: PayloadAction<number>) => {
+    openMemberModal: (state: DashboardState, action: PayloadAction<number>) => {
       state.memberModalOpen = true;
       state.memberModalTaskListId = action.payload;
     },
-    closeMemberModal: (state) => {
+    closeMemberModal: (state: DashboardState) => {
       state.memberModalOpen = false;
       state.memberModalTaskListId = null;
     },
-    openDetailModal: (state, action: PayloadAction<number>) => {
+    openDetailModal: (state: DashboardState, action: PayloadAction<number>) => {
       state.detailModalOpen = true;
       state.detailTaskId = action.payload;
     },
-    closeDetailModal: (state) => {
+    closeDetailModal: (state: DashboardState) => {
       state.detailModalOpen = false;
       state.detailTaskId = null;
     },
-    openTaskListDetail: (state, action: PayloadAction<number>) => {
+    openTaskListDetail: (state: DashboardState, action: PayloadAction<number>) => {
       state.taskListDetailOpen = true;
       state.taskListDetailId = action.payload;
     },
-    closeTaskListDetail: (state) => {
+    closeTaskListDetail: (state: DashboardState) => {
       state.taskListDetailOpen = false;
       state.taskListDetailId = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchTaskLists.pending, (state) => {
+      .addCase(fetchTaskLists.pending, (state: DashboardState) => {
         state.taskListsLoading = true;
       })
-      .addCase(fetchTaskLists.fulfilled, (state, action) => {
+      .addCase(fetchTaskLists.fulfilled, (state: DashboardState, action: PayloadAction<TaskList[]>) => {
         state.taskListsLoading = false;
         state.taskLists = action.payload;
       })
-      .addCase(fetchTaskLists.rejected, (state) => {
+      .addCase(fetchTaskLists.rejected, (state: DashboardState) => {
         state.taskListsLoading = false;
       })
-      .addCase(fetchTasks.pending, (state) => {
+      .addCase(fetchTasks.pending, (state: DashboardState) => {
         state.tasksLoading = true;
       })
-      .addCase(fetchTasks.fulfilled, (state, action) => {
+      .addCase(fetchTasks.fulfilled, (state: DashboardState, action: PayloadAction<Task[]>) => {
         state.tasksLoading = false;
         state.tasks = action.payload;
       })
-      .addCase(fetchTasks.rejected, (state) => {
+      .addCase(fetchTasks.rejected, (state: DashboardState) => {
         state.tasksLoading = false;
       })
-      .addCase(deleteTaskListThunk.fulfilled, (state, action) => {
-        const { taskListId, selectedListId } = action.payload;
+      .addCase(deleteTaskListThunk.fulfilled, (state: DashboardState, action: PayloadAction<{ taskListId: number; selectedListId: number | null }>) => {
+        const { taskListId } = action.payload;
         if (state.selectedListId === taskListId) {
           state.selectedListId = null;
         }
       })
-      .addCase(saveTaskListThunk.fulfilled, (state) => {
+      .addCase(saveTaskListThunk.fulfilled, (state: DashboardState) => {
         state.taskListModalOpen = false;
         state.editingTaskList = null;
       })
       .addCase(deleteTaskThunk.fulfilled, () => {})
       .addCase(toggleCompleteThunk.fulfilled, () => {})
-      .addCase(saveTaskThunk.fulfilled, (state) => {
+      .addCase(saveTaskThunk.fulfilled, (state: DashboardState) => {
         state.taskModalOpen = false;
         state.editingTask = null;
       })

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Layout,
@@ -143,6 +143,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleCalendarShowDetail = useCallback((t: Task) => onShowDetail(t.id), [onShowDetail]);
   const getSelectedKeyFromPath = () => {
     const path = location.pathname;
     if (path.includes('calendar')) return 'calendar';
@@ -162,7 +164,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   }, [isCalendarView, refreshAllTasks, refreshTasks]);
 
-  const calendarTasks = tasks.map((t) => {
+  const calendarTasks = useMemo(() => tasks.map((t) => {
     const raw = (t as { dueDate?: string; due_date?: string });
     const dueStr = raw.dueDate ?? raw.due_date;
     return {
@@ -173,7 +175,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       isCompleted: t.isCompleted ?? false,
       description: t.description,
     };
-  });
+  }), [tasks]);
 
   const dashboardWorkspace = (
     <div
@@ -215,7 +217,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               tasks={calendarTasks}
               onAddTask={onCalendarAddTask}
               onUpdateTask={onCalendarUpdateTask}
-              onShowDetail={(t) => onShowDetail(t.id)}
+              onShowDetail={handleCalendarShowDetail}
             />
           ) : (
             <TaskListView
@@ -244,7 +246,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               tasks={calendarTasks}
               onAddTask={onCalendarAddTask}
               onUpdateTask={onCalendarUpdateTask}
-              onShowDetail={(t) => onShowDetail(t.id)}
+              onShowDetail={handleCalendarShowDetail}
             />
           </div>
         );
