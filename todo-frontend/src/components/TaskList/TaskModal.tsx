@@ -38,6 +38,12 @@ const TaskModal: FC<TaskModalProps> = ({ open, onOk, onCancel, initialValues = {
       initialValues={initialValues}
       onFinish={onOk}
     >
+      <Form.Item name="taskListId" hidden>
+        <Input />
+      </Form.Item>
+      <Form.Item name="task_list_id" hidden>
+        <Input />
+      </Form.Item>
       <Form.Item
         name="title"
         label="Tên công việc"
@@ -66,6 +72,7 @@ const TaskModal: FC<TaskModalProps> = ({ open, onOk, onCancel, initialValues = {
       <Form.Item
         name="due_date"
         label="Hạn chót"
+        rules={[{ required: true, message: 'Vui lòng chọn hạn chót' }]}
       >
         <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
       </Form.Item>
@@ -126,3 +133,5 @@ const TaskModal: FC<TaskModalProps> = ({ open, onOk, onCancel, initialValues = {
 };
 
 export default TaskModal;
+
+

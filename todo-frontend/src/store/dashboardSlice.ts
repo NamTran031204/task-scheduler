@@ -58,6 +58,16 @@ const initialState: DashboardState = {
   taskListDetailId: null,
 };
 
+const normalizeTask = (task: any): Task => {
+  const dueDate = task?.dueDate ?? task?.due_date ?? '';
+  const taskListId = task?.taskListId ?? task?.task_list_id ?? task?.taskList?.id ?? task?.task_list?.id;
+  return {
+    ...task,
+    dueDate,
+    taskListId,
+  } as Task;
+};
+
 function buildTaskListPayload(values: any) {
   const name = String(values?.name ?? '').trim();
   const rawDesc = values?.description;
@@ -92,16 +102,16 @@ export const fetchTasks = createAsyncThunk(
     { rejectWithValue }: { rejectWithValue: (value: any) => any }
   ) => {
     try {
-      if (listId) {
-        const data = await getTasksByTaskList(userId, listId);
-        return data.content || [];
-      }
-      const allTasks: Task[] = [];
-      for (const list of taskLists) {
-        const data = await getTasksByTaskList(userId, list.id);
-        allTasks.push(...(data.content || []));
-      }
-      return allTasks;
+        if (listId) {
+          const data = await getTasksByTaskList(userId, listId);
+          return (data.content || []).map(normalizeTask);
+        }
+        const allTasks: Task[] = [];
+        for (const list of taskLists) {
+          const data = await getTasksByTaskList(userId, list.id);
+          allTasks.push(...(data.content || []).map(normalizeTask));
+        }
+        return allTasks;
     } catch (error) {
       message.error('Không tải được công việc');
       return rejectWithValue({

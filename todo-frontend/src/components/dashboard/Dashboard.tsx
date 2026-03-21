@@ -13,7 +13,6 @@ import {
   deleteTaskThunk,
   toggleCompleteThunk,
   saveTaskThunk,
-  calendarAddTaskThunk,
   calendarUpdateTaskThunk,
   setCollapsed,
   setSelectedListId,
@@ -134,11 +133,6 @@ const Dashboard = () => {
       dispatch(fetchTaskLists(userId));
     }
   };
-
-  const handleAddTask = () => {
-    dispatch(openTaskModal('create'));
-  };
-
   const handleEditTask = (task: Task) => {
     dispatch(openTaskModal({ mode: 'edit', task }));
   };
@@ -178,28 +172,6 @@ const Dashboard = () => {
       refreshTasksCurrent();
     }
   };
-
-  const handleCalendarAddTask = async (
-    partial: Omit<Task, 'id' | 'isCompleted'> & { dueDate?: string }
-  ) => {
-    if (userId == null) {
-      throw new Error('Thiếu user ID. Đăng nhập lại.');
-    }
-    const result = await dispatch(
-      calendarAddTaskThunk({
-        userId,
-        partial,
-        selectedListId,
-        taskLists,
-      })
-    );
-    if (calendarAddTaskThunk.fulfilled.match(result)) {
-      dispatch(fetchTasks({ userId, listId: null, taskLists }));
-    } else if (calendarAddTaskThunk.rejected.match(result)) {
-      throw result.error;
-    }
-  };
-
   const handleCalendarUpdateTask = async (task: Task) => {
     if (userId == null) return;
     const result = await dispatch(
@@ -269,7 +241,6 @@ const Dashboard = () => {
       tasks={tasks}
       refreshTasks={refreshTasksCurrent}
       refreshAllTasks={refreshAllTasks}
-      onAddTask={handleAddTask}
       onEditTask={handleEditTask}
       onDeleteTask={handleDeleteTask}
       onToggleComplete={handleToggleComplete}
@@ -293,7 +264,6 @@ const Dashboard = () => {
       detailModalOpen={detailModalOpen}
       detailTaskId={detailTaskId}
       onDetailModalClose={() => dispatch(closeDetailModal())}
-      onCalendarAddTask={handleCalendarAddTask}
       onCalendarUpdateTask={handleCalendarUpdateTask}
       taskListDetailOpen={taskListDetailOpen}
       taskListDetailId={taskListDetailId}
