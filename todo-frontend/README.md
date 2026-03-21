@@ -1,2 +1,5 @@
-# run frontend: cd todo-frontend        =>   npm install  =>   npm run dev
+# run frontend
+cd todo-frontend       
+npm install  
+npm run dev
 
