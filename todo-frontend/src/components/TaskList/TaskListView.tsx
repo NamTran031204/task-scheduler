@@ -81,43 +81,46 @@ const TaskListView: React.FC<TaskListViewProps> = ({ tasks, loading, taskListId,
           <Empty description="Không có công việc nào" />
         ) : (
           <List
+            style={{overflowX: 'auto',}}
             itemLayout="horizontal"
             dataSource={filteredTasks}
             renderItem={(task, index) => (
               <List.Item
                 className="ui-task-row ui-stagger-item"
-                style={{ animationDelay: `${Math.min(index, 20) * 42}ms` }}
-                actions={[
-                  <Button type="link" key="detail" onClick={() => onShowDetail(task.id)}>Chi tiết</Button>,
-                  <Button type="link" key="del" danger onClick={() => onDeleteTask(task.id)}>Xóa</Button>,
-                  <Button type="link" key="edit" onClick={() => onEditTask(task)}>Sửa</Button>,
-                ]}
+                style={{ overflowX: 'visible', animationDelay: `${Math.min(index, 20) * 42}ms`, position: 'relative' }}
               >
-                <List.Item.Meta
-                  title={
-                    <span style={{ textDecoration: task.isCompleted ? 'line-through' : 'none', fontWeight: 500 }}>
-                      {task.title}
-                      <Tag color={task.isCompleted ? 'green' : 'gold'} style={{ marginLeft: 8 }}>
-                        {task.isCompleted ? 'Hoàn thành' : 'Chưa xong'}
-                      </Tag>
-                    </span>
-                  }
-                  description={
-                    <span title={task.description} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: 220 }}>
-                      {task.description}
-                    </span>
-                  }
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <Checkbox checked={task.isCompleted} onChange={() => onToggleComplete(task)} style={{ marginBottom: 2 }} />
-                  <Tag color={task.priority === 'HIGH' ? 'red' : task.priority === 'MEDIUM' ? 'orange' : task.priority === 'URGENT' ? 'volcano' : 'blue'}>
-                    {task.priority}
-                  </Tag>
-                  {task.dueDate && (
-                    <Tag color={dayjs(task.dueDate).isBefore(dayjs(), 'day') && !task.isCompleted ? 'red' : 'default'} style={{ marginTop: 2 }}>
-                      Hạn: {dayjs(task.dueDate).format('DD/MM/YYYY')}
+                <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 16, paddingRight: 250 }}>
+                  <List.Item.Meta
+                    title={
+                      <span style={{ textDecoration: task.isCompleted ? 'line-through' : 'none', fontWeight: 500 }}>
+                        {task.title}
+                        <Tag color={task.isCompleted ? 'green' : 'gold'} style={{ marginLeft: 8 }}>
+                          {task.isCompleted ? 'Hoàn thành' : 'Chưa xong'}
+                        </Tag>
+                      </span>
+                    }
+                    description={
+                      <span title={task.description} style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
+                        {task.description}
+                      </span>
+                    }
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <Checkbox checked={task.isCompleted} onChange={() => onToggleComplete(task)} style={{ marginBottom: 2 }} />
+                    <Tag color={task.priority === 'HIGH' ? 'red' : task.priority === 'MEDIUM' ? 'orange' : task.priority === 'URGENT' ? 'volcano' : 'blue'}>
+                      {task.priority}
                     </Tag>
-                  )}
+                    {task.dueDate && (
+                      <Tag color={dayjs(task.dueDate).isBefore(dayjs(), 'day') && !task.isCompleted ? 'red' : 'default'} style={{ marginTop: 2 }}>
+                        Hạn: {dayjs(task.dueDate).format('DD/MM/YYYY')}
+                      </Tag>
+                    )}
+                  </div>
+                </div>
+                <div style={{ position: 'absolute', right: 0, top: 0, height: '100%', display: 'flex', alignItems: 'center', gap: 8, background: 'white', paddingLeft: 16 }}>
+                  <Button type="link" onClick={() => onShowDetail(task.id)}>Chi tiết</Button>
+                  <Button type="link" danger onClick={() => onDeleteTask(task.id)}>Xóa</Button>
+                  <Button type="link" onClick={() => onEditTask(task)}>Sửa</Button>
                 </div>
               </List.Item>
             )}

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import { Route, BrowserRouter as Router, Routes, Navigate, useLocation } from "react-router-dom";
-import { ConfigProvider, theme as antdTheme } from "antd";
+import { ConfigProvider, theme as antdTheme, App as AntdApp } from "antd";
 import viVN from "antd/locale/vi_VN";
 import { store } from "./store";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -100,9 +100,11 @@ const App = () => (
       },
     }}
   >
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <AntdApp>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </AntdApp>
   </ConfigProvider>
 );
 

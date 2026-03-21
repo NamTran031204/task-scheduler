@@ -77,7 +77,10 @@ export const fetchTaskLists = createAsyncThunk(
       return data.content || [];
     } catch (error) {
       message.error('Không tải được danh sách task list');
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: (error as any)?.response?.status,
+      });
     }
   }
 );
@@ -101,7 +104,10 @@ export const fetchTasks = createAsyncThunk(
       return allTasks;
     } catch (error) {
       message.error('Không tải được công việc');
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: (error as any)?.response?.status,
+      });
     }
   }
 );
@@ -118,7 +124,10 @@ export const deleteTaskListThunk = createAsyncThunk(
       return { taskListId, selectedListId };
     } catch (error) {
       message.error('Xóa task list thất bại');
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: (error as any)?.response?.status,
+      });
     }
   }
 );
@@ -158,7 +167,10 @@ export const saveTaskListThunk = createAsyncThunk(
       const msg =
         err?.response?.data?.message || err?.response?.data?.error || 'Không lưu được task list';
       message.error(msg);
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: msg,
+        status: err?.response?.status,
+      });
     }
   }
 );
@@ -172,7 +184,10 @@ export const deleteTaskThunk = createAsyncThunk(
       return taskId;
     } catch (error) {
       message.error('Failed to delete task');
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: (error as any)?.response?.status,
+      });
     }
   }
 );
@@ -194,7 +209,10 @@ export const toggleCompleteThunk = createAsyncThunk(
     } catch (error: any) {
       const msg = error?.response?.data?.message || 'Không cập nhật được trạng thái';
       message.error(msg);
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: msg,
+        status: error?.response?.status,
+      });
     }
   }
 );
@@ -250,7 +268,10 @@ export const saveTaskThunk = createAsyncThunk(
       const msg =
         error?.response?.data?.message || error?.response?.data?.error || 'Lưu công việc thất bại';
       message.error(msg);
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: msg,
+        status: error?.response?.status,
+      });
     }
   }
 );
@@ -278,22 +299,24 @@ export const calendarAddTaskThunk = createAsyncThunk(
         message.warning(msg);
         return rejectWithValue(new Error(msg));
       }
-      const due = partial.dueDate ? dayjs(partial.dueDate).endOf('day') : undefined;
-      const payload = buildTaskApiBody(
-        {
-          title: partial.title,
-          description: partial.description,
-          priority: partial.priority,
-          due_date: due,
-        },
-        listId,
-        (m) => message.warning(m)
-      );
+      const formFields = {
+        title: partial.title || '',
+        description: partial.description || '',
+        priority: partial.priority || 'MEDIUM',
+        due_date: partial.dueDate ? dayjs(partial.dueDate).endOf('day') : dayjs().endOf('day'),
+      };
+      const payload = buildTaskApiBody(formFields, listId, (m) => message.warning(m));
+      console.log('Calendar task creation payload:', payload);
       await createTask(userId, payload);
       message.success('Đã thêm công việc');
       return null;
-    } catch (error) {
-      return rejectWithValue(error);
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Không thêm được công việc';
+      message.error(msg);
+      return rejectWithValue({
+        message: msg,
+        status: error?.response?.status,
+      });
     }
   }
 );
@@ -332,7 +355,10 @@ export const calendarUpdateTaskThunk = createAsyncThunk(
       message.success('Đã cập nhật công việc');
       return null;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue({
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: (error as any)?.response?.status,
+      });
     }
   }
 );
