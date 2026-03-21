@@ -18,6 +18,7 @@ export interface Task {
   startTime?: string;
   endTime?: string;
   description?: string;
+  recurrence?: string;
 }
 
 interface CalendarViewProps {
@@ -69,6 +70,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       dueDate: date.format('YYYY-MM-DD'),
       priority: 'MEDIUM',
       isCompleted: false,
+      recurrence: 'NONE',
     });
     setIsModalOpen(true);
   };
@@ -76,16 +78,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const handleModalOk = async (values: any) => {
     try {
       const dueDate = values.due_date
-        ? dayjs(values.due_date).format('YYYY-MM-DD')
+        ? dayjs(values.due_date).format('YYYY-MM-DD HH:mm:ss')
         : selectedTask?.dueDate
-          ? dayjs(selectedTask.dueDate).format('YYYY-MM-DD')
+          ? dayjs(selectedTask.dueDate).format('YYYY-MM-DD HH:mm:ss')
           : undefined;
       if (mode === 'create' && onAddTask) {
         await onAddTask({
           title: values.title,
           description: values.description,
           priority: values.priority ?? 'MEDIUM',
-          dueDate: dueDate ?? selectedDate.format('YYYY-MM-DD'),
+          dueDate: dueDate ?? selectedDate.format('YYYY-MM-DD HH:mm:ss'),
+          recurrence: values.recurrence ?? 'NONE',
         });
       } else if (mode === 'edit' && selectedTask && onUpdateTask) {
         await onUpdateTask({
@@ -94,6 +97,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           description: values.description,
           priority: values.priority ?? selectedTask.priority,
           dueDate: dueDate ?? selectedTask.dueDate,
+          recurrence: values.recurrence ?? 'NONE',
         });
       }
       setIsModalOpen(false);

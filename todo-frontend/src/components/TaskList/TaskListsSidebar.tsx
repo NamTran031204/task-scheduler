@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Button, Spin, Typography, theme } from 'antd';
+import { Menu, Button, Spin, Typography, theme, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 
 declare global {
@@ -30,23 +30,29 @@ const TaskListsSidebar: React.FC<TaskListsSidebarProps> = ({
   onShowListDetail,
 }) => {
   const { token } = theme.useToken();
-  const items: MenuProps['items'] = taskLists.map((list) => ({
-    key: list.id.toString(),
-    label: (
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-        <span>{list.name}</span>
-        <span style={{ opacity: 0.7, marginLeft: 8, display: 'flex', gap: 4 }}>
-          <Button size="small" type="link" onClick={e => { e.stopPropagation(); onEditTaskList(list); }}>Sửa</Button>
-          {onShowListDetail ? (
-            <Button size="small" type="link" onClick={e => { e.stopPropagation(); onShowListDetail(list.id); }}>Chi tiết</Button>
-          ) : null}
-          <Button size="small" type="link" onClick={e => { e.stopPropagation(); if (window.memberModalOpen) window.memberModalOpen(list.id); }}>Thành viên</Button>
-          <Button size="small" type="link" danger onClick={e => { e.stopPropagation(); onDeleteTaskList(list.id); }}>Xóa</Button>
-        </span>
-      </div>
-    ),
-    style: { color: list.color || '#3b82f6', fontWeight: 500 },
-  }));
+  const items: MenuProps['items'] = taskLists.map((list) => {
+    const menu = (
+      <Menu>
+        <Menu.Item key="edit" onClick={(e) => { e.domEvent.stopPropagation(); onEditTaskList(list); }}>Sửa</Menu.Item>
+        {onShowListDetail ? (
+          <Menu.Item key="detail" onClick={(e) => { e.domEvent.stopPropagation(); onShowListDetail(list.id); }}>Chi tiết</Menu.Item>
+        ) : null}
+        <Menu.Item key="members" onClick={(e) => { e.domEvent.stopPropagation(); if (window.memberModalOpen) window.memberModalOpen(list.id); }}>Thành viên</Menu.Item>
+        <Menu.Item key="delete" danger onClick={(e) => { e.domEvent.stopPropagation(); onDeleteTaskList(list.id); }}>Xóa</Menu.Item>
+      </Menu>
+    );
+    return {
+      key: list.id.toString(),
+      label: (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Dropdown overlay={menu} trigger={['hover']} placement="bottomRight">
+            <span style={{ cursor: 'pointer' }}>{list.name}</span>
+          </Dropdown>
+        </div>
+      ),
+      style: { color: list.color || '#3b82f6', fontWeight: 500 },
+    };
+  });
 
   return (
     <div

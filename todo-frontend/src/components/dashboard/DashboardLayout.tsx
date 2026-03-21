@@ -211,7 +211,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             Lịch
           </Button>
         </Space>
-        <div key={showCalendar ? 'cal' : 'list'} className="ui-view-crossfade" style={{ width: '100%' }}>
+        <div key={showCalendar ? 'cal' : 'list'} className="ui-view-crossfade" style={{ width: '100%', overflowX: showCalendar ? 'visible' : 'auto' }}>
           {showCalendar ? (
             <CalendarView
               tasks={calendarTasks}
@@ -468,7 +468,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         onCancel={onMemberModalClose}
         footer={null}
         width={720}
-        destroyOnClose
+        destroyOnHidden
       >
         {memberModalTaskListId ? (
           <MemberManagement taskListId={memberModalTaskListId} currentUserId={currentUserId} />

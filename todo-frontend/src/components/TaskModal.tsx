@@ -71,7 +71,6 @@ const TaskModal = ({ open, onOk, onCancel, initialValues = {}, mode = 'create' }
       <Form.Item
         name="recurrence"
         label="Lặp lại"
-        initialValue="NONE"
       >
         <Select>
           <Option value="NONE">Không lặp</Option>

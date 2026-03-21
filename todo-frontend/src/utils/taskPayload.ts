@@ -43,7 +43,7 @@ export function buildTaskApiBody(
       if (d.isBefore(dayjs())) {
         onWarn?.('Hạn chót đã qua; lưu task không kèm hạn chót.');
       } else {
-        body.due_date = d.format('YYYY-MM-DDTHH:mm:ss');
+        body.due_date = d.format('YYYY-MM-DD HH:mm:ss');
       }
     }
   }
