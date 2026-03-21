@@ -1,0 +1,206 @@
+:root {
+  --ui-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ui-duration: 0.28s;
+  --ui-duration-fast: 0.16s;
+  --ui-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ui-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --ui-shadow-hover: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ui-float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.ui-auth-enter {
+  animation: ui-fade-up 0.55s var(--ui-ease-out) both;
+}
+
+.ui-login-illus {
+  animation: ui-float-soft 5s ease-in-out infinite;
+}
+
+.ui-view-crossfade {
+  animation: ui-fade-up 0.38s var(--ui-ease-out) both;
+}
+
+.ui-dashboard-workspace {
+  animation: ui-fade-in 0.4s var(--ui-ease-out) both;
+}
+
+.ui-stagger-item {
+  animation: ui-fade-up 0.42s var(--ui-ease-out) both;
+}
+
+.ui-elevated-panel {
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow-md);
+  transition:
+    box-shadow var(--ui-duration) var(--ui-ease-out),
+    transform var(--ui-duration) var(--ui-ease-out);
+}
+
+.ui-elevated-panel:hover {
+  box-shadow: var(--ui-shadow-hover);
+}
+
+.ui-sidebar-panel {
+  border-radius: 0 12px 12px 0;
+  transition: background-color var(--ui-duration-fast) var(--ui-ease-out);
+}
+
+.ui-sidebar-panel .ant-menu-item {
+  border-radius: 8px !important;
+  margin-block: 4px !important;
+  transition:
+    background-color var(--ui-duration-fast) var(--ui-ease-out),
+    transform var(--ui-duration-fast) var(--ui-ease-out);
+}
+
+.ui-sidebar-panel .ant-menu-item-active,
+.ui-sidebar-panel .ant-menu-item-selected {
+  transform: translateX(2px);
+}
+
+.ui-task-row.ant-list-item {
+  border-radius: 10px;
+  padding: 12px 16px !important;
+  margin-bottom: 8px;
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border-secondary, #f0f0f0) !important;
+  transition:
+    box-shadow var(--ui-duration-fast) var(--ui-ease-out),
+    transform var(--ui-duration-fast) var(--ui-ease-out),
+    border-color var(--ui-duration-fast) var(--ui-ease-out);
+}
+
+.ui-task-row.ant-list-item:hover {
+  box-shadow: var(--ui-shadow-sm);
+  transform: translateY(-1px);
+  border-color: var(--ant-color-primary-border, #91caff) !important;
+}
+
+.ui-filter-bar {
+  flex-wrap: wrap;
+  animation: ui-fade-in 0.35s var(--ui-ease-out) both;
+}
+
+.ui-cal-task-chip {
+  border-radius: 6px;
+  padding: 2px 4px;
+  transition:
+    background-color var(--ui-duration-fast) var(--ui-ease-out),
+    transform var(--ui-duration-fast) var(--ui-ease-out);
+}
+
+.ui-cal-task-chip:hover {
+  transform: translateX(2px);
+  background: rgba(22, 119, 255, 0.06);
+}
+
+.ui-sider-shell {
+  transition:
+    width 0.26s var(--ui-ease-out),
+    box-shadow var(--ui-duration) var(--ui-ease-out) !important;
+}
+
+.ui-header-shell {
+  transition:
+    margin-left 0.26s var(--ui-ease-out),
+    box-shadow var(--ui-duration) var(--ui-ease-out);
+}
+
+.ui-content-shell {
+  transition: margin-left 0.26s var(--ui-ease-out);
+}
+
+.ui-icon-btn.ant-btn {
+  transition:
+    transform var(--ui-duration-fast) var(--ui-ease-out),
+    color var(--ui-duration-fast) var(--ui-ease-out);
+}
+
+.ui-icon-btn.ant-btn:hover {
+  transform: scale(1.06);
+}
+
+.ant-btn.ant-btn-primary {
+  transition:
+    transform var(--ui-duration-fast) var(--ui-ease-out),
+    box-shadow var(--ui-duration-fast) var(--ui-ease-out);
+}
+
+.ant-btn.ant-btn-primary:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ui-duration: 0.01ms;
+    --ui-duration-fast: 0.01ms;
+  }
+
+  .ui-auth-enter,
+  .ui-login-illus,
+  .ui-view-crossfade,
+  .ui-dashboard-workspace,
+  .ui-stagger-item {
+    animation: none !important;
+  }
+
+  .ui-login-illus {
+    transform: none;
+  }
+
+  .ui-sidebar-panel .ant-menu-item-active,
+  .ui-sidebar-panel .ant-menu-item-selected,
+  .ui-task-row.ant-list-item:hover,
+  .ui-cal-task-chip:hover,
+  .ui-icon-btn.ant-btn:hover,
+  .ant-btn.ant-btn-primary:not(:disabled):active {
+    transform: none;
+  }
+
+  .ui-sider-shell,
+  .ui-header-shell,
+  .ui-content-shell {
+    transition: none !important;
+  }
+}

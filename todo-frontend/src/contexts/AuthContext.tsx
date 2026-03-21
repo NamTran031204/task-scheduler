@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { parseStoredUserId } from '../utils/userId';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  userId: number | null;
   login: (token: string, userId: string) => void;
   logout: () => void;
   loading: boolean;
@@ -19,35 +21,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId');
-    
-    if (token && userId) {
+    const numericId = parseStoredUserId();
+
+    if (token && numericId != null) {
       setIsAuthenticated(true);
-      
       if (location.pathname === '/login') {
         const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
       }
     } else {
+      if (token && numericId == null) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+      }
       if (location.pathname !== '/login' && location.pathname !== '/register') {
-        navigate('/login', { 
+        navigate('/login', {
           replace: true,
-          state: { from: location }
+          state: { from: location },
         });
       }
     }
-    
     setLoading(false);
   }, [navigate, location]);
 
-  const login = useCallback((token: string, userId: string) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('userId', userId);
-    setIsAuthenticated(true);
-    
-    const from = location.state?.from?.pathname || '/dashboard';
-    navigate(from, { replace: true });
-  }, [navigate, location.state]);
+  const login = useCallback(
+    (token: string, userIdStr: string) => {
+      localStorage.setItem('token', token);
+      localStorage.setItem('userId', userIdStr);
+      if (parseStoredUserId() == null) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        setIsAuthenticated(false);
+        return;
+      }
+      setIsAuthenticated(true);
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
+    },
+    [navigate, location.state]
+  );
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
@@ -56,11 +68,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate('/login', { replace: true });
   }, [navigate]);
 
+  const userId = useMemo(() => (isAuthenticated ? parseStoredUserId() : null), [isAuthenticated]);
+
   const value = {
     isAuthenticated,
+    userId,
     login,
     logout,
-    loading
+    loading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

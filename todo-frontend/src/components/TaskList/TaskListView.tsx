@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Checkbox, Tag, Spin, Empty, Button } from 'antd';
+import { List, Checkbox, Tag, Spin, Empty, Button, Input, Select, DatePicker, Space } from 'antd';
 import dayjs from 'dayjs';
 
 interface TaskListViewProps {
@@ -30,26 +30,51 @@ const TaskListView: React.FC<TaskListViewProps> = ({ tasks, loading, taskListId,
 
   return (
     <div style={{ minHeight: 500 }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <input placeholder="Tìm kiếm..." value={keyword} onChange={e => setKeyword(e.target.value)} style={{ width: 180, padding: 4 }} />
-        <select value={status} onChange={e => setStatus(e.target.value as any)} style={{ padding: 4 }}>
-          <option value="all">Tất cả trạng thái</option>
-          <option value="completed">Đã hoàn thành</option>
-          <option value="incomplete">Chưa hoàn thành</option>
-        </select>
-        <select value={priority} onChange={e => setPriority(e.target.value as any)} style={{ padding: 4 }}>
-          <option value="all">Tất cả ưu tiên</option>
-          <option value="LOW">Thấp</option>
-          <option value="MEDIUM">Trung bình</option>
-          <option value="HIGH">Cao</option>
-          <option value="URGENT">Khẩn cấp</option>
-        </select>
-        <input type="date" value={dueDate ? dueDate.format('YYYY-MM-DD') : ''} onChange={e => setDueDate(e.target.value ? dayjs(e.target.value) : null)} style={{ padding: 4 }} />
-        <Button onClick={() => { setKeyword(''); setStatus('all'); setPriority('all'); setDueDate(null); }}>Xóa lọc</Button>
-      </div>
+      <Space wrap className="ui-filter-bar" size="middle" style={{ marginBottom: 16, width: '100%' }}>
+        <Input
+          allowClear
+          placeholder="Tìm kiếm..."
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          style={{ width: 200 }}
+        />
+        <Select
+          value={status}
+          onChange={(v) => setStatus(v)}
+          style={{ width: 180 }}
+          options={[
+            { value: 'all', label: 'Tất cả trạng thái' },
+            { value: 'completed', label: 'Đã hoàn thành' },
+            { value: 'incomplete', label: 'Chưa hoàn thành' },
+          ]}
+        />
+        <Select
+          value={priority}
+          onChange={(v) => setPriority(v)}
+          style={{ width: 160 }}
+          options={[
+            { value: 'all', label: 'Tất cả ưu tiên' },
+            { value: 'LOW', label: 'Thấp' },
+            { value: 'MEDIUM', label: 'Trung bình' },
+            { value: 'HIGH', label: 'Cao' },
+            { value: 'URGENT', label: 'Khẩn cấp' },
+          ]}
+        />
+        <DatePicker
+          value={dueDate}
+          onChange={(d) => setDueDate(d)}
+          placeholder="Lọc theo hạn"
+          style={{ width: 160 }}
+        />
+        <Button onClick={() => { setKeyword(''); setStatus('all'); setPriority('all'); setDueDate(null); }}>
+          Xóa lọc
+        </Button>
+      </Space>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontWeight: 600, fontSize: 20 }}>Công việc</div>
-        <Button type="primary" disabled={!taskListId} onClick={onAddTask}>+ Thêm Task</Button>
+        <Button type="primary" className="ui-icon-btn" disabled={!taskListId} onClick={onAddTask}>
+          + Thêm Task
+        </Button>
       </div>
       <Spin spinning={loading}>
         {filteredTasks.length === 0 ? (
@@ -58,12 +83,16 @@ const TaskListView: React.FC<TaskListViewProps> = ({ tasks, loading, taskListId,
           <List
             itemLayout="horizontal"
             dataSource={filteredTasks}
-            renderItem={task => (
-              <List.Item actions={[
-  <Button type="link" onClick={() => onShowDetail(task.id)}>Chi tiết</Button>,
-  <Button type="link" danger onClick={() => onDeleteTask(task.id)}>Xóa</Button>,
-  <Button type="link" onClick={() => onEditTask(task)}>Sửa</Button>
-]}> 
+            renderItem={(task, index) => (
+              <List.Item
+                className="ui-task-row ui-stagger-item"
+                style={{ animationDelay: `${Math.min(index, 20) * 42}ms` }}
+                actions={[
+                  <Button type="link" key="detail" onClick={() => onShowDetail(task.id)}>Chi tiết</Button>,
+                  <Button type="link" key="del" danger onClick={() => onDeleteTask(task.id)}>Xóa</Button>,
+                  <Button type="link" key="edit" onClick={() => onEditTask(task)}>Sửa</Button>,
+                ]}
+              >
                 <List.Item.Meta
                   title={
                     <span style={{ textDecoration: task.isCompleted ? 'line-through' : 'none', fontWeight: 500 }}>

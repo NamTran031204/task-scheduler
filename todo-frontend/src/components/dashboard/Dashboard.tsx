@@ -1,221 +1,299 @@
-import { useEffect, useState, useCallback } from 'react';
-import { message } from 'antd';
-import { createTask, updateTask, deleteTask, getTasksByTaskList } from '../../api/task';
-import { createTaskList, getTaskListsByUser } from '../../api/taskList';
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { message, Alert } from 'antd';
+import dayjs from 'dayjs';
+import { useAuth } from '../../contexts/AuthContext';
 import DashboardLayout from './DashboardLayout';
 import type { Task, TaskList as TaskListType } from '../../types/task';
+import {
+  fetchTaskLists,
+  fetchTasks,
+  deleteTaskListThunk,
+  saveTaskListThunk,
+  deleteTaskThunk,
+  toggleCompleteThunk,
+  saveTaskThunk,
+  calendarAddTaskThunk,
+  calendarUpdateTaskThunk,
+  setCollapsed,
+  setSelectedListId,
+  toggleShowCalendar,
+  openTaskModal,
+  closeTaskModal,
+  openTaskListModal,
+  closeTaskListModal,
+  openMemberModal,
+  closeMemberModal,
+  openDetailModal,
+  closeDetailModal,
+  openTaskListDetail,
+  closeTaskListDetail,
+} from '../../store/dashboardSlice';
 
 const Dashboard = () => {
-  const userId = Number(localStorage.getItem('userId'));
+  const { userId } = useAuth();
+  const dispatch = useAppDispatch();
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [selectedListId, setSelectedListId] = useState<number | null>(null);
-  const [taskLists, setTaskLists] = useState<TaskListType[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [, setLoading] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(true);
-
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskModalMode, setTaskModalMode] = useState<'create' | 'edit'>('create');
-  const [taskListModalMode, setTaskListModalMode] = useState<'create' | 'edit'>('create');
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [editingTaskList] = useState<TaskListType | null>(null);
-  const [taskListModalOpen, setTaskListModalOpen] = useState(false);
-  const [memberModalOpen, setMemberModalOpen] = useState(false);
-  const [memberModalTaskListId, setMemberModalTaskListId] = useState<number | null>(null);
-  const [, setDetailModalOpen] = useState(false);
-  const [, setDetailTaskId] = useState<number | null>(null);
-
-  const toggleView = useCallback(() => {
-    setShowCalendar(!showCalendar);
-  }, [showCalendar]);
-
-  const handleToggleComplete = async (task: Task) => {
-    try {
-      const updatedTask = { ...task, isCompleted: !task.isCompleted };
-      await updateTask(userId, task.id, updatedTask);
-      message.success('Task updated successfully');
-      refreshTasks(selectedListId);
-    } catch (error) {
-      console.error('Error updating task:', error);
-      message.error('Failed to update task');
-    }
-  };
-
-  const handleAddTaskList = useCallback(() => {
-    setTaskListModalMode('create');
-    setTaskListModalOpen(true);
-  }, []);
-
-  const handleTaskListModalOk = useCallback(async (values: any) => {
-    setLoading(true);
-    try {
-      if (taskListModalMode === 'create') {
-        await createTaskList(userId, values);
-        message.success('Task list created successfully');
-      } else if (editingTaskList) {
-        const { updateTaskList } = await import('../../api/taskList');
-        await updateTaskList(editingTaskList.id, userId, values);
-        message.success('Task list updated successfully');
-      }
-      refreshTaskLists();
-      setTaskListModalOpen(false);
-    } catch (error) {
-      console.error('Error saving task list:', error);
-      message.error('Failed to save task list');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, taskListModalMode, editingTaskList]);
-
-  const handleTaskListModalCancel = useCallback(() => {
-    setTaskListModalOpen(false);
-  }, []);
-
-  const handleAddTask = useCallback(() => {
-    setEditingTask(null);
-    setTaskModalMode('create');
-    setTaskModalOpen(true);
-  }, []);
-
-  const handleEditTask = useCallback((task: Task) => {
-    setEditingTask(task);
-    setTaskModalMode('edit');
-    setTaskModalOpen(true);
-  }, []);
-
-  const handleDeleteTask = useCallback(async (taskId: number) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
-    setLoading(true);
-    try {
-      await deleteTask(userId, taskId);
-      message.success('Task deleted successfully');
-      refreshTasks(selectedListId);
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      message.error('Failed to delete task');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, selectedListId]);
-
-  const handleShowDetail = useCallback((taskId: number) => {
-    setDetailTaskId(taskId);
-    setDetailModalOpen(true);
-  }, []);
-
-  const handleTaskModalOk = useCallback(async (values: any) => {
-    setLoading(true);
-    try {
-      if (taskModalMode === 'create') {
-        const res = await createTask(userId, { ...values, task_list_id: selectedListId });
-        message.success('Task created successfully');
-        if (values.recurrence && values.recurrence !== 'NONE') {
-          await import('../../api/task').then(api => api.createTaskRecurrence(res.content.id, { type: values.recurrence }));
-        }
-      } else if (editingTask) {
-        await updateTask(userId, editingTask.id, values);
-        message.success('Task updated successfully');
-        if (values.recurrence && values.recurrence !== 'NONE' && values.recurrence !== editingTask.recurrence) {
-          await import('../../api/task').then(api => api.createTaskRecurrence(editingTask.id, { type: values.recurrence }));
-        }
-      }
-      setTaskModalOpen(false);
-      refreshTasks(selectedListId);
-    } catch (error) {
-      console.error('Error saving task:', error);
-      message.error('Failed to save task');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, selectedListId, taskModalMode, editingTask]);
-
-  const handleTaskModalCancel = useCallback(() => {
-    setTaskModalOpen(false);
-  }, []);
-
-  const refreshTaskLists = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    try {
-      const data = await getTaskListsByUser(userId);
-      setTaskLists(data.content || []);
-    } catch (error) {
-      console.error('Error loading task lists:', error);
-      message.error('Failed to load task lists');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  const refreshTasks = useCallback(async (listId: number | null) => {
-    if (!userId) return;
-    try {
-      if (listId) {
-        const data = await getTasksByTaskList(userId, listId);
-        setTasks(data.content || []);
-      } else {
-        const allTasks: Task[] = [];
-        for (const list of taskLists) {
-          const data = await getTasksByTaskList(userId, list.id);
-          allTasks.push(...(data.content || []));
-        }
-        setTasks(allTasks);
-      }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      message.error('Failed to load tasks');
-    }
-  }, [userId, taskLists]);
+  const {
+    collapsed,
+    selectedListId,
+    taskLists,
+    tasks,
+    taskListsLoading,
+    tasksLoading,
+    showCalendar,
+    taskModalOpen,
+    taskModalMode,
+    taskListModalMode,
+    editingTask,
+    editingTaskList,
+    taskListModalOpen,
+    memberModalOpen,
+    memberModalTaskListId,
+    detailModalOpen,
+    detailTaskId,
+    taskListDetailOpen,
+    taskListDetailId,
+  } = useAppSelector((state) => state.dashboard);
 
   useEffect(() => {
-    refreshTaskLists();
-    refreshTasks(selectedListId);
-  }, [refreshTaskLists, refreshTasks, selectedListId]);
+    if (userId != null) {
+      dispatch(fetchTaskLists(userId));
+    }
+  }, [userId, dispatch]);
+
+  useEffect(() => {
+    if (userId != null) {
+      dispatch(fetchTasks({ userId, listId: selectedListId, taskLists }));
+    }
+  }, [userId, selectedListId, taskLists, dispatch]);
 
   useEffect(() => {
     (window as any).memberModalOpen = (taskListId: number) => {
-      setMemberModalTaskListId(taskListId);
-      setMemberModalOpen(true);
+      dispatch(openMemberModal(taskListId));
     };
-    return () => { (window as any).memberModalOpen = undefined; };
-  }, []);
+    return () => {
+      (window as any).memberModalOpen = undefined;
+    };
+  }, [dispatch]);
+
+  const refreshTasksCurrent = () => {
+    if (userId != null) {
+      dispatch(fetchTasks({ userId, listId: selectedListId, taskLists }));
+    }
+  };
+
+  const refreshAllTasks = () => {
+    if (userId != null) {
+      dispatch(fetchTasks({ userId, listId: null, taskLists }));
+    }
+  };
+
+  const handleToggleComplete = async (task: Task) => {
+    if (userId == null) return;
+    const result = await dispatch(toggleCompleteThunk({ userId, task }));
+    if (toggleCompleteThunk.fulfilled.match(result)) {
+      refreshTasksCurrent();
+    }
+  };
+
+  const handleAddTaskList = () => {
+    dispatch(openTaskListModal('create'));
+  };
+
+  const handleEditTaskList = (list: TaskListType) => {
+    dispatch(openTaskListModal({ mode: 'edit', list }));
+  };
+
+  const handleDeleteTaskList = async (taskListId: number) => {
+    if (userId == null) return;
+    if (!window.confirm('Xóa task list này?')) return;
+    const result = await dispatch(
+      deleteTaskListThunk({ userId, taskListId, selectedListId })
+    );
+    if (deleteTaskListThunk.fulfilled.match(result)) {
+      dispatch(fetchTaskLists(userId));
+    }
+  };
+
+  const handleTaskListModalOk = async (values: any) => {
+    if (userId == null) {
+      message.error('Thiếu user ID. Đăng nhập lại.');
+      return;
+    }
+    const result = await dispatch(
+      saveTaskListThunk({
+        userId,
+        values,
+        mode: taskListModalMode,
+        editingTaskList,
+      })
+    );
+    if (saveTaskListThunk.fulfilled.match(result)) {
+      dispatch(fetchTaskLists(userId));
+    }
+  };
+
+  const handleAddTask = () => {
+    dispatch(openTaskModal('create'));
+  };
+
+  const handleEditTask = (task: Task) => {
+    dispatch(openTaskModal({ mode: 'edit', task }));
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    if (userId == null) return;
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    const result = await dispatch(deleteTaskThunk({ userId, taskId }));
+    if (deleteTaskThunk.fulfilled.match(result)) {
+      refreshTasksCurrent();
+    }
+  };
+
+  const handleShowDetail = (taskId: number) => {
+    dispatch(openDetailModal(taskId));
+  };
+
+  const handleTaskModalOk = async (values: any) => {
+    if (userId == null) {
+      message.error('Thiếu user ID. Đăng nhập lại.');
+      return;
+    }
+    if (!selectedListId) {
+      message.warning('Chọn một task list trước');
+      return;
+    }
+    const result = await dispatch(
+      saveTaskThunk({
+        userId,
+        values,
+        selectedListId,
+        mode: taskModalMode,
+        editingTask,
+      })
+    );
+    if (saveTaskThunk.fulfilled.match(result)) {
+      refreshTasksCurrent();
+    }
+  };
+
+  const handleCalendarAddTask = async (
+    partial: Omit<Task, 'id' | 'isCompleted'> & { dueDate?: string }
+  ) => {
+    if (userId == null) {
+      throw new Error('Thiếu user ID. Đăng nhập lại.');
+    }
+    const result = await dispatch(
+      calendarAddTaskThunk({
+        userId,
+        partial,
+        selectedListId,
+        taskLists,
+      })
+    );
+    if (calendarAddTaskThunk.fulfilled.match(result)) {
+      dispatch(fetchTasks({ userId, listId: null, taskLists }));
+    } else if (calendarAddTaskThunk.rejected.match(result)) {
+      throw result.error;
+    }
+  };
+
+  const handleCalendarUpdateTask = async (task: Task) => {
+    if (userId == null) return;
+    const result = await dispatch(
+      calendarUpdateTaskThunk({
+        userId,
+        task,
+        selectedListId,
+      })
+    );
+    if (calendarUpdateTaskThunk.fulfilled.match(result)) {
+      dispatch(fetchTasks({ userId, listId: null, taskLists }));
+    }
+  };
+
+  const taskModalInitialValues =
+    editingTask && taskModalMode === 'edit'
+      ? {
+          ...editingTask,
+          due_date: editingTask.dueDate ? dayjs(editingTask.dueDate) : undefined,
+          recurrence: editingTask.recurrence ?? 'NONE',
+        }
+      : {};
+
+  const taskListModalInitialValues =
+    editingTaskList && taskListModalMode === 'edit'
+      ? {
+          name: editingTaskList.name,
+          description: (editingTaskList as TaskListType & { description?: string })
+            .description,
+          color: editingTaskList.color || '#1890ff',
+        }
+      : { color: '#1890ff' };
+
+  if (userId == null) {
+    return (
+      <div style={{ padding: 24 }}>
+        <Alert
+          showIcon
+          type="error"
+          message="Không có user ID hợp lệ trong phiên đăng nhập."
+          description="Hãy đăng xuất (avatar → Đăng xuất) rồi đăng nhập lại. Backend cần trả về accessToken và userId (hoặc id) trong JSON, hoặc JWT có claim userId/sub."
+        />
+      </div>
+    );
+  }
 
   return (
     <DashboardLayout
-      // Layout
       collapsed={collapsed}
-      onCollapse={setCollapsed}
-      
+      onCollapse={(v) => dispatch(setCollapsed(v))}
       taskLists={taskLists}
+      taskListsLoading={taskListsLoading}
+      tasksLoading={tasksLoading}
       selectedListId={selectedListId}
-      onSelectList={setSelectedListId}
+      onSelectList={(value) => {
+        const next =
+          typeof value === 'function' ? value(selectedListId) : value;
+        dispatch(setSelectedListId(next));
+      }}
       onAddTaskList={handleAddTaskList}
-      
+      onEditTaskList={handleEditTaskList}
+      onDeleteTaskList={handleDeleteTaskList}
       tasks={tasks}
+      refreshTasks={refreshTasksCurrent}
+      refreshAllTasks={refreshAllTasks}
       onAddTask={handleAddTask}
       onEditTask={handleEditTask}
       onDeleteTask={handleDeleteTask}
       onToggleComplete={handleToggleComplete}
       onShowDetail={handleShowDetail}
-      
       showCalendar={showCalendar}
-      onToggleView={toggleView}
-      
+      onToggleView={() => dispatch(toggleShowCalendar())}
       taskModalOpen={taskModalOpen}
       onTaskModalOk={handleTaskModalOk}
-      onTaskModalCancel={handleTaskModalCancel}
+      onTaskModalCancel={() => dispatch(closeTaskModal())}
       taskModalMode={taskModalMode}
-      editingTask={editingTask}
-      
+      taskModalInitialValues={taskModalInitialValues}
       taskListModalOpen={taskListModalOpen}
       onTaskListModalOk={handleTaskListModalOk}
-      onTaskListModalCancel={handleTaskListModalCancel}
-      
+      onTaskListModalCancel={() => dispatch(closeTaskListModal())}
+      taskListModalMode={taskListModalMode}
+      taskListModalInitialValues={taskListModalInitialValues}
       memberModalOpen={memberModalOpen}
-      onMemberModalClose={() => setMemberModalOpen(false)}
+      onMemberModalClose={() => dispatch(closeMemberModal())}
       memberModalTaskListId={memberModalTaskListId}
       currentUserId={userId}
+      detailModalOpen={detailModalOpen}
+      detailTaskId={detailTaskId}
+      onDetailModalClose={() => dispatch(closeDetailModal())}
+      onCalendarAddTask={handleCalendarAddTask}
+      onCalendarUpdateTask={handleCalendarUpdateTask}
+      taskListDetailOpen={taskListDetailOpen}
+      taskListDetailId={taskListDetailId}
+      onTaskListDetailClose={() => dispatch(closeTaskListDetail())}
+      onShowTaskListDetail={(id) => dispatch(openTaskListDetail(id))}
     />
   );
 };

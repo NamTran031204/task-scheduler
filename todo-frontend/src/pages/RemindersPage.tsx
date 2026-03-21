@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Card, List, Button, Space, Input, message, Popconfirm, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import {
   getRemindersByUser,
   getPendingRemindersByUser,
+  getRemindersByTask,
+  getReminderById,
   updateReminder,
   deleteReminder,
   sendDueReminders,
 } from '../api/reminder';
+import { useRemindersStore } from '../store/remindersSlice';
 
 interface ReminderItem {
   id: number;
@@ -25,13 +28,35 @@ interface RemindersPageProps {
 }
 
 const RemindersPage = ({ userId }: RemindersPageProps) => {
-  const [allReminders, setAllReminders] = useState<ReminderItem[]>([]);
-  const [pendingReminders, setPendingReminders] = useState<ReminderItem[]>([]);
-  const [loadingAll, setLoadingAll] = useState(false);
-  const [loadingPending, setLoadingPending] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingMessage, setEditingMessage] = useState('');
+  const {
+    allReminders,
+    pendingReminders,
+    loadingAll,
+    loadingPending,
+    sending,
+    editingId,
+    editingMessage,
+    taskIdFilter,
+    byTaskList,
+    loadingByTask,
+    reminderLookupId,
+    lookupResult,
+    lookupLoading,
+    setAllReminders,
+    setPendingReminders,
+    setLoadingAll,
+    setLoadingPending,
+    setSending,
+    setEditingId,
+    setEditingMessage,
+    setTaskIdFilter,
+    setByTaskList,
+    setLoadingByTask,
+    setReminderLookupId,
+    setLookupResult,
+    setLookupLoading,
+    resetEditingState,
+  } = useRemindersStore();
 
   const getTimeLabel = (item: ReminderItem) => {
     const time = item.remindAt || item.remind_at || item.dueDate || item.createdAt;
@@ -80,8 +105,7 @@ const RemindersPage = ({ userId }: RemindersPageProps) => {
     try {
       await updateReminder(userId, id, { message: editingMessage });
       message.success('Đã cập nhật nhắc nhở');
-      setEditingId(null);
-      setEditingMessage('');
+      resetEditingState();
       loadAll();
       loadPending();
     } catch {
@@ -98,6 +122,42 @@ const RemindersPage = ({ userId }: RemindersPageProps) => {
       loadPending();
     } catch {
       message.error('Xóa nhắc nhở thất bại');
+    }
+  };
+
+  const loadByTask = async () => {
+    const tid = Number(taskIdFilter);
+    if (!userId || !tid) {
+      message.warning('Nhập Task ID hợp lệ');
+      return;
+    }
+    setLoadingByTask(true);
+    try {
+      const data = await getRemindersByTask(userId, tid);
+      const list = Array.isArray(data) ? data : data?.content ?? [];
+      setByTaskList(list);
+    } catch {
+      message.error('Không lấy được nhắc nhở theo task');
+    } finally {
+      setLoadingByTask(false);
+    }
+  };
+
+  const loadReminderById = async () => {
+    const rid = Number(reminderLookupId);
+    if (!userId || !rid) {
+      message.warning('Nhập Reminder ID');
+      return;
+    }
+    setLookupLoading(true);
+    try {
+      const data = await getReminderById(userId, rid);
+      setLookupResult(data);
+    } catch {
+      message.error('Không tìm thấy nhắc nhở');
+      setLookupResult(null);
+    } finally {
+      setLookupLoading(false);
     }
   };
 
@@ -119,11 +179,11 @@ const RemindersPage = ({ userId }: RemindersPageProps) => {
       actions={[
         editingId === item.id ? (
           <Button size="small" type="primary" onClick={() => handleSave(item.id)}>
-            LÆ°u
+            Lưu
           </Button>
         ) : (
           <Button size="small" onClick={() => handleEdit(item)}>
-            Sá»­a
+            Sửa
           </Button>
         ),
         <Popconfirm
@@ -174,6 +234,43 @@ const RemindersPage = ({ userId }: RemindersPageProps) => {
               </Button>
             </Space>
           </Space>
+        </Card>
+
+        <Card title="Theo Task ID" variant="borderless">
+          <Space wrap style={{ marginBottom: 12 }}>
+            <Input
+              placeholder="Task ID"
+              value={taskIdFilter}
+              onChange={(e) => setTaskIdFilter(e.target.value)}
+              style={{ width: 160 }}
+            />
+            <Button type="primary" onClick={loadByTask} loading={loadingByTask}>
+              Tải nhắc nhở theo task
+            </Button>
+          </Space>
+          <List
+            loading={loadingByTask}
+            dataSource={byTaskList}
+            locale={{ emptyText: 'Chưa tải hoặc không có dữ liệu' }}
+            renderItem={renderItem}
+          />
+        </Card>
+
+        <Card title="Chi tiết theo Reminder ID" variant="borderless">
+          <Space wrap style={{ marginBottom: 12 }}>
+            <Input
+              placeholder="Reminder ID"
+              value={reminderLookupId}
+              onChange={(e) => setReminderLookupId(e.target.value)}
+              style={{ width: 160 }}
+            />
+            <Button onClick={loadReminderById} loading={lookupLoading}>
+              Tra cứu
+            </Button>
+          </Space>
+          {lookupResult ? (
+            <List dataSource={[lookupResult]} renderItem={renderItem} />
+          ) : null}
         </Card>
 
         <Card title="Tất cả cập nhật" variant={'borderless'}>

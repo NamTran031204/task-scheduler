@@ -149,7 +149,7 @@ const MemberManagement = ({ taskListId, currentUserId }: MemberManagementProps) 
               }
             }}
             okText="Rời đi"
-            cancelText="Hủyy"
+            cancelText="Hủy"
           >
             <Button danger loading={leaving} style={{ maxWidth: 200 }}>
               Rời task list
@@ -170,7 +170,7 @@ const MemberManagement = ({ taskListId, currentUserId }: MemberManagementProps) 
                   okText="Xóa"
                   cancelText="Hủy"
                 >
-                  <Button size="small" danger>XÃ³a</Button>
+                  <Button size="small" danger>Xóa</Button>
                 </Popconfirm>
               ) : null,
               member.role === 'MEMBER' && isHost ? (
@@ -182,7 +182,7 @@ const MemberManagement = ({ taskListId, currentUserId }: MemberManagementProps) 
                   Chuyển vai trò
                 </Button>
               ) : null,
-              member.role === 'HOST' ? <Tag color="gold">Chấp nhận</Tag> : null
+              member.role === 'HOST' ? <Tag color="gold">Host</Tag> : null
             ].filter(Boolean)}
           >
             <List.Item.Meta title={member.name || member.email} description={member.email} />

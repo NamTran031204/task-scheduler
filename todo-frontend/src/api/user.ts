@@ -43,6 +43,27 @@ export const getAllUsers = async (
   return data;
 };
 
+export async function findUserIdByEmail(email: string): Promise<number | null> {
+  try {
+    const target = email.trim().toLowerCase();
+    if (!target) return null;
+    const record = 100;
+    let page = 0;
+    let totalPage = 1;
+    const maxPages = 100;
+    while (page < totalPage && page < maxPages) {
+      const data = await getAllUsers(record, page);
+      totalPage = Math.max(data.totalPage ?? 1, 1);
+      const hit = data.userResponses?.find((u) => u.email?.trim().toLowerCase() === target);
+      if (hit) return hit.id;
+      page += 1;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // 1.3 Update User Avatar
 export const updateUserAvatar = async (
   userId: number,

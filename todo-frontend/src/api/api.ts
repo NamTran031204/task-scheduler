@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { SESSION_NO_JWT } from '../utils/userId';
 
 const api = axios.create({
   baseURL: import.meta.env.URL || 'http://localhost:8088/api/v1',
@@ -11,7 +12,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && token !== SESSION_NO_JWT) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

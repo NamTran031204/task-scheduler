@@ -5,8 +5,9 @@ import React from 'react';
 
 const IntegrationsPage: React.FC = () => {
   return (
-    <div>
-    </div>
+    <p style={{float:"left", margin: "24px", fontSize: "18px"}}>
+      Tính năng đang phát triển!
+    </p>
   );
 };
 
