@@ -5,16 +5,14 @@ import dayjs from 'dayjs';
 interface TaskListViewProps {
   tasks: any[];
   loading: boolean;
-  taskListId: number | null;
   refreshTasks: () => void;
-  onAddTask: () => void;
   onShowDetail: (taskId: number) => void;
   onDeleteTask: (taskId: number) => void;
   onEditTask: (task: any) => void;
   onToggleComplete: (task: any) => void;
 }
 
-const TaskListView: React.FC<TaskListViewProps> = ({ tasks, loading, taskListId, onAddTask, onShowDetail, onDeleteTask, onEditTask, onToggleComplete }) => {
+const TaskListView: React.FC<TaskListViewProps> = ({ tasks, loading, onShowDetail, onDeleteTask, onEditTask, onToggleComplete }) => {
   const [keyword, setKeyword] = React.useState('');
   const [status, setStatus] = React.useState<'all' | 'completed' | 'incomplete'>('all');
   const [priority, setPriority] = React.useState<'all' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('all');
@@ -72,9 +70,6 @@ const TaskListView: React.FC<TaskListViewProps> = ({ tasks, loading, taskListId,
       </Space>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontWeight: 600, fontSize: 20 }}>Công việc</div>
-        <Button type="primary" className="ui-icon-btn" disabled={!taskListId} onClick={onAddTask}>
-          + Thêm Task
-        </Button>
       </div>
       <Spin spinning={loading}>
         {filteredTasks.length === 0 ? (

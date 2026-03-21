@@ -11,6 +11,7 @@ import {
 import type { UserResponse } from '../../api/user';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { URL as API_BASE_URL } from '../../constants/routeURL';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -50,7 +51,7 @@ const ProfileCard = styled(Card)`
 const TitleWrap = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* gap: 6px; */
   color: #f8fafc;
 `;
 
@@ -59,7 +60,7 @@ const TitleText = styled.div`
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  color: black;
+  color: #175aeb;
 `;
 
 const HeaderRow = styled.div`
@@ -145,8 +146,19 @@ const UserProfile = () => {
   const [deleting, setDeleting] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [user, setUser] = useState<UserResponse | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const navigate = useNavigate();
   const { userId } = useAuth();
+
+  const normalizeAvatarUrl = (raw?: string | null) => {
+    if (!raw) return null;
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    const origin = new URL(API_BASE_URL).origin;
+    if (trimmed.startsWith('/uploads/')) return `${origin}${trimmed}`;
+    if (trimmed.startsWith('uploads/')) return `${origin}/${trimmed}`;
+    return `${origin}/uploads/${trimmed}`;
+  };
 
   useEffect(() => {
     if (userId == null) {
@@ -156,8 +168,12 @@ const UserProfile = () => {
       setProfileLoading(true);
       try {
         const data = await getUserById(userId);
-        setUser(data);
+        const normalized = normalizeAvatarUrl(data.avatarUrl ?? null);
+        setUser({ ...data, avatarUrl: normalized });
         form.setFieldsValue({ username: data.username, fullname: data.fullName });
+        if (normalized) {
+          localStorage.setItem('avatarUrl', normalized);
+        }
         setErrorText(null);
       } catch (err) {
         setErrorText('Failed to load profile data.');
@@ -174,11 +190,13 @@ const UserProfile = () => {
       }
       setLoading(true);
       await updateUser(userId, { username: values.username, fullname: values.fullname });
-      message.success('Thành công');
+      message.success('Đã lưu thay đổi thành công');
+      setSaveSuccess(true);
       setErrorText(null);
     } catch (err) {
       message.error('Thất bại');
       setErrorText('Failed to update profile.');
+      setSaveSuccess(false);
     } finally {
       setLoading(false);
     }
@@ -191,9 +209,24 @@ const UserProfile = () => {
         return false;
       }
       setUploading(true);
-      await updateUserAvatar(userId, file);
-      message.success('Thành công');
-      setUser((prev) => (prev ? { ...prev, avatarUrl: URL.createObjectURL(file) } : prev));
+      const resp = await updateUserAvatar(userId, file);
+      const serverUrlRaw =
+        typeof resp === 'string'
+          ? resp
+          : (resp as { avatarUrl?: string; url?: string })?.avatarUrl ||
+            (resp as { avatarUrl?: string; url?: string })?.url ||
+            null;
+      const serverUrl = normalizeAvatarUrl(serverUrlRaw);
+      const previewUrl = serverUrl ?? URL.createObjectURL(file);
+      message.success('Đã cập nhật avatar');
+      setUser((prev) => (prev ? { ...prev, avatarUrl: previewUrl } : prev));
+      const fresh = await getUserById(userId);
+      const freshUrl = normalizeAvatarUrl(fresh.avatarUrl ?? null) ?? previewUrl;
+      setUser({ ...fresh, avatarUrl: freshUrl });
+      if (freshUrl) {
+        localStorage.setItem('avatarUrl', freshUrl);
+        window.dispatchEvent(new Event('avatar-updated'));
+      }
       setErrorText(null);
     } catch (err) {
       message.error('Upload thất bại');
@@ -229,7 +262,7 @@ const UserProfile = () => {
       <ProfileCard
         title={
           <TitleWrap>
-            <TitleText>Thông tin người dùng</TitleText>
+            <TitleText>Chỉnh sửa hồ sơ</TitleText>
           </TitleWrap>
         }
         variant={'borderless'}
@@ -254,7 +287,12 @@ const UserProfile = () => {
             </NameBlock>
           </HeaderRow>
 
-          <Form form={form} layout="vertical" onFinish={onFinish}>
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={onFinish}
+            onValuesChange={() => setSaveSuccess(false)}
+          >
             <FormGrid>
               <Form.Item name="username" label="Tên đăng nhập" rules={[{ required: false }]}>
                 <Input placeholder="username" disabled={loading || uploading || deleting} />
@@ -264,10 +302,17 @@ const UserProfile = () => {
               </Form.Item>
             </FormGrid>
             <ActionsRow>
-              <Button type="primary" htmlType="submit" loading={loading} disabled={uploading || deleting}>
+              {!saveSuccess &&
+                <Button type="primary" htmlType="submit" loading={loading} disabled={uploading || deleting}>
                 Lưu thay đổi
               </Button>
-            </ActionsRow>
+              }
+                          {saveSuccess ? (
+                <Button style={{ marginLeft: 12 }} onClick={() => navigate('/dashboard')}>
+                  Trở về Dashboard
+                </Button>
+              ) : null}
+</ActionsRow>
           </Form>
 
           <DangerZone>
@@ -294,3 +339,6 @@ const UserProfile = () => {
 };
 
 export default UserProfile;
+
+
+

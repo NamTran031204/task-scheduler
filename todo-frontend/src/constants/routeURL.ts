@@ -5,3 +5,4 @@ export const DASHBOARD_URL = '/dashboard';
 export const PROFILE_URL = '/profile';
 
 export const URL = 'http://localhost:8088/api/v1';
+export const URL_PORT = 'http://localhost:8088';

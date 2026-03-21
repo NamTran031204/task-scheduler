@@ -7,26 +7,28 @@ export type TaskFormValues = {
   description?: string;
   priority?: string;
   due_date?: unknown;
+  taskListId?: number;
+  recurrence?: string;
 };
 
 export function buildTaskApiBody(
   values: TaskFormValues,
-  taskListId: number,
+  taskListId?: number,
   onWarn?: (msg: string) => void
 ): Record<string, string | number> {
   const title = String(values?.title ?? '').trim();
-  const lid = Number(taskListId);
+  const lid = Number(taskListId ?? values.taskListId);
   if (!title) {
     throw new Error('TITLE_REQUIRED');
-  }
-  if (!Number.isFinite(lid) || lid <= 0) {
-    throw new Error('LIST_ID_INVALID');
   }
 
   const body: Record<string, string | number> = {
     title,
-    task_list_id: lid,
   };
+
+  if (Number.isFinite(lid) && lid > 0) {
+    body.task_list_id = lid;
+  }
 
   const desc = values?.description;
   if (desc != null && String(desc).trim() !== '') {
@@ -42,10 +44,13 @@ export function buildTaskApiBody(
     if (d.isValid()) {
       if (d.isBefore(dayjs())) {
         onWarn?.('Hạn chót đã qua; lưu task không kèm hạn chót.');
-      } else {
-        body.due_date = d.format('YYYY-MM-DD HH:mm:ss');
       }
+      body.due_date = d.format('YYYY-MM-DDTHH:mm');
     }
+  }
+  const rec = values?.recurrence;
+  if (rec && ['NONE', 'DAILY', 'WEEKLY', 'MONTHLY'].includes(String(rec))) {
+    body.recurrence = String(rec);
   }
 
   return body;
@@ -57,3 +62,5 @@ export function pickTaskListId(task: Record<string, unknown>, fallback: number |
   if (Number.isFinite(n) && n > 0) return n;
   return Number(fallback) > 0 ? Number(fallback) : 0;
 }
+
+

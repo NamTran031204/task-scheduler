@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Form, Input } from 'antd';
+import { Modal, Form, Input, DatePicker } from 'antd';
 
 interface TaskListModalProps {
   open: boolean;
@@ -30,6 +30,19 @@ const TaskListModal: React.FC<TaskListModalProps> = ({ open, onOk, onCancel, ini
       cancelText="Hủy"
     >
       <Form form={form} layout="vertical" onFinish={onOk} initialValues={initialValues}>
+        <Form.Item name="title" label="Tên công việc">
+          <Input />
+        </Form.Item>
+        <Form.Item
+          name="due_date"
+          label="Hạn chót"
+          rules={[{ required: true, message: 'Vui lòng chọn hạn chót' }]}
+        >
+          <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="task_list_id" label="Task List ID">
+          <Input />
+        </Form.Item>
         <Form.Item name="name" label="Tên danh sách" rules={[{ required: true, message: 'Vui lòng nhập tên danh sách' }]}> 
           <Input />
         </Form.Item>

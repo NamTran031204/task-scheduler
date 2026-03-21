@@ -37,6 +37,9 @@ const TaskModal = ({ open, onOk, onCancel, initialValues = {}, mode = 'create' }
       initialValues={initialValues}
       onFinish={onOk}
     >
+      <Form.Item name="task_list_id" hidden>
+        <Input />
+      </Form.Item>
       <Form.Item
         name="title"
         label="Tên công việc"
@@ -65,6 +68,7 @@ const TaskModal = ({ open, onOk, onCancel, initialValues = {}, mode = 'create' }
       <Form.Item
         name="due_date"
         label="Hạn chót"
+        rules={[{ required: true, message: 'Vui lòng chọn hạn chót' }]}
       >
         <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
       </Form.Item>

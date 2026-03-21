@@ -37,7 +37,7 @@ import {
   UserOutlined,
   ProjectOutlined,
   CalendarOutlined,
-  SettingOutlined,
+  // SettingOutlined,
   LogoutOutlined,
   TeamOutlined,
   NotificationOutlined,
@@ -45,6 +45,7 @@ import {
   FormatPainterOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
+import { URL_PORT } from '../../constants/routeURL';
 
 const { Header, Sider, Content } = Layout;
 
@@ -62,7 +63,6 @@ interface DashboardLayoutProps {
   tasks: Task[];
   refreshTasks: () => void;
   refreshAllTasks?: () => void;
-  onAddTask: () => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: number) => void;
   onToggleComplete: (task: Task) => void;
@@ -86,7 +86,6 @@ interface DashboardLayoutProps {
   detailModalOpen: boolean;
   detailTaskId: number | null;
   onDetailModalClose: () => void;
-  onCalendarAddTask: (task: Omit<Task, 'id' | 'isCompleted'> & { dueDate?: string }) => Promise<void>;
   onCalendarUpdateTask: (task: Task) => Promise<void>;
   taskListDetailOpen: boolean;
   taskListDetailId: number | null;
@@ -108,7 +107,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   tasks,
   refreshTasks,
   refreshAllTasks,
-  onAddTask,
   onEditTask,
   onDeleteTask,
   onToggleComplete,
@@ -132,7 +130,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   detailModalOpen,
   detailTaskId,
   onDetailModalClose,
-  onCalendarAddTask,
   onCalendarUpdateTask,
   taskListDetailOpen,
   taskListDetailId,
@@ -143,6 +140,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  const normalizeAvatarUrl = (raw?: string | null) => {
+    if (!raw) return null;
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    const origin = URL_PORT;
+    if (trimmed.startsWith('/uploads/')) return `${origin}${trimmed}`;
+    if (trimmed.startsWith('uploads/')) return `${origin}/${trimmed}`;
+    return `${origin}/uploads/${trimmed}`;
+  };
 
   const handleCalendarShowDetail = useCallback((t: Task) => onShowDetail(t.id), [onShowDetail]);
   const getSelectedKeyFromPath = () => {
@@ -164,18 +172,38 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   }, [isCalendarView, refreshAllTasks, refreshTasks]);
 
+  useEffect(() => {
+    const readAvatar = () => {
+      const stored = localStorage.getItem('avatarUrl');
+      const normalized = normalizeAvatarUrl(stored);
+      setAvatarUrl(normalized && normalized.trim() !== '' ? normalized : null);
+    };
+    readAvatar();
+    const handler = () => readAvatar();
+    window.addEventListener('avatar-updated', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('avatar-updated', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+
   const calendarTasks = useMemo(() => tasks.map((t) => {
-    const raw = (t as { dueDate?: string; due_date?: string });
+    const raw = (t as { dueDate?: string; due_date?: string; taskListId?: number; task_list_id?: number; name?: string });
     const dueStr = raw.dueDate ?? raw.due_date;
+    const listId = raw.taskListId ?? raw.task_list_id;
+    const listColor = taskLists.find((l) => l.id === listId)?.color;
     return {
       id: t.id,
-      title: t.title ?? (t as { name?: string }).name ?? '',
+      title: t.title ?? raw.name ?? '',
       dueDate: dueStr ? String(dueStr) : '',
       priority: t.priority ?? 'MEDIUM',
       isCompleted: t.isCompleted ?? false,
       description: t.description,
+      taskListId: listId,
+      listColor,
     };
-  }), [tasks]);
+  }), [tasks, taskLists]);
 
   const dashboardWorkspace = (
     <div
@@ -215,7 +243,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {showCalendar ? (
             <CalendarView
               tasks={calendarTasks}
-              onAddTask={onCalendarAddTask}
               onUpdateTask={onCalendarUpdateTask}
               onShowDetail={handleCalendarShowDetail}
             />
@@ -223,9 +250,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <TaskListView
               tasks={tasks}
               loading={tasksLoading}
-              taskListId={selectedListId}
               refreshTasks={refreshTasks}
-              onAddTask={onAddTask}
               onShowDetail={onShowDetail}
               onDeleteTask={onDeleteTask}
               onEditTask={onEditTask}
@@ -244,7 +269,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <div style={{ padding: 24, height: '100%', boxSizing: 'border-box' }}>
             <CalendarView
               tasks={calendarTasks}
-              onAddTask={onCalendarAddTask}
               onUpdateTask={onCalendarUpdateTask}
               onShowDetail={handleCalendarShowDetail}
             />
@@ -283,7 +307,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const userMenuItems: MenuProps['items'] = [
     { key: 'hoso', label: 'Hồ sơ', icon: <UserOutlined /> },
-    { key: 'caidat', label: 'Cài đặt', icon: <SettingOutlined /> },
+    // { key: 'caidat', label: 'Cài đặt', icon: <SettingOutlined /> },
     { type: 'divider' },
     { key: 'dangxuat', label: 'Đăng xuất', icon: <LogoutOutlined /> },
   ];
@@ -407,6 +431,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <Avatar
                 size={36}
                 icon={<UserOutlined />}
+                src={avatarUrl ?? undefined}
                 style={{
                   backgroundColor: token.colorPrimary,
                   color: '#fff',

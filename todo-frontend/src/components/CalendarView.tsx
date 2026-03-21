@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, Button, List, Tag, Space, message } from 'antd';
-import { PlusOutlined, CheckCircleOutlined, ClockCircleOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ClockCircleOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
@@ -19,6 +19,8 @@ export interface Task {
   endTime?: string;
   description?: string;
   recurrence?: string;
+  taskListId?: number;
+  listColor?: string;
 }
 
 interface CalendarViewProps {
@@ -39,20 +41,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
 
-  const getPriorityColor = (priority: Priority) => {
-    switch (priority) {
-      case 'LOW': return 'blue';
-      case 'MEDIUM': return 'green';
-      case 'HIGH': return 'orange';
-      case 'URGENT': return 'red';
-      default: return 'gray';
-    }
-  };
+  // const getPriorityColor = (priority: Priority) => {
+  //   switch (priority) {
+  //     case 'LOW': return 'blue';
+  //     case 'MEDIUM': return 'green';
+  //     case 'HIGH': return 'orange';
+  //     case 'URGENT': return 'red';
+  //     default: return 'gray';
+  //   }
+  // };
 
   const getTasksForDate = (date: Dayjs) => {
     const target = date.format('YYYY-MM-DD');
     return tasks.filter((task) => {
-      const d = task.dueDate;
+      const rawDue = (task as { dueDate?: string; due_date?: string }).dueDate
+        ?? (task as { dueDate?: string; due_date?: string }).due_date;
+      const d = rawDue ?? '';
       if (d == null || d === '') return false;
       const parsed = dayjs(d);
       if (!parsed.isValid()) return false;
@@ -108,18 +112,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
-  const getPriorityBg = (priority: Priority) => {
-    switch (priority) {
-      case 'LOW': return 'rgba(22, 119, 255, 0.12)';
-      case 'MEDIUM': return 'rgba(82, 196, 26, 0.14)';
-      case 'HIGH': return 'rgba(250, 140, 22, 0.16)';
-      case 'URGENT': return 'rgba(255, 77, 79, 0.18)';
-      default: return 'rgba(0, 0, 0, 0.06)';
+  const toRgba = (hex: string, alpha: number) => {
+    const cleaned = hex.replace('#', '').trim();
+    if (cleaned.length === 3) {
+      const r = parseInt(cleaned[0] + cleaned[0], 16);
+      const g = parseInt(cleaned[1] + cleaned[1], 16);
+      const b = parseInt(cleaned[2] + cleaned[2], 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
+    if (cleaned.length === 6) {
+      const r = parseInt(cleaned.slice(0, 2), 16);
+      const g = parseInt(cleaned.slice(2, 4), 16);
+      const b = parseInt(cleaned.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return '';
   };
 
-  const getPriorityBorder = (priority: Priority) => {
-    switch (priority) {
+  const getTaskColor = (task: Task) => {
+    if (task.listColor && task.listColor.trim() !== '') {
+      return task.listColor;
+    }
+    switch (task.priority) {
       case 'LOW': return '#1677ff';
       case 'MEDIUM': return '#52c41a';
       case 'HIGH': return '#fa8c16';
@@ -127,6 +141,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       default: return '#d9d9d9';
     }
   };
+
+  const getTaskBg = (task: Task) => {
+    const base = getTaskColor(task);
+    const rgba = toRgba(base, 0.14);
+    return rgba || 'rgba(0, 0, 0, 0.06)';
+  };
+
+  const getTaskBorder = (task: Task) => getTaskColor(task);
 
   const dateCellRender = (date: Dayjs) => {
     const tasksForDate = getTasksForDate(date);
@@ -144,8 +166,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               borderRadius: 6,
               fontSize: 12,
               cursor: 'pointer',
-              background: getPriorityBg(task.priority),
-              borderLeft: `3px solid ${getPriorityBorder(task.priority)}`,
+              background: getTaskBg(task),
+              borderLeft: `3px solid ${getTaskBorder(task)}`,
               textDecoration: task.isCompleted ? 'line-through' : 'none',
               opacity: task.isCompleted ? 0.75 : 1,
               overflow: 'hidden',
@@ -228,14 +250,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             }}
           />
         </Space>
-        <Button
+        {/* <Button
           type="primary"
           className="ui-icon-btn"
           icon={<PlusOutlined />}
           onClick={() => openAddModalForDate(selectedDate)}
         >
           Thêm công việc
-        </Button>
+        </Button> */}
       </div>
 
       <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: 0 }}>
@@ -278,7 +300,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     title={
                       <Space>
                         <span>{task.title}</span>
-                        <Tag color={getPriorityColor(task.priority)}>
+                        <Tag color={getTaskBorder(task)}>
                           {task.priority}
                         </Tag>
                       </Space>
